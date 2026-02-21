@@ -1177,12 +1177,12 @@ U32 HdlcAnalyzer::GetMinimumSampleRateHz()
 
 const char* HdlcAnalyzer::GetAnalyzerName() const
 {
-    return "HDLC";
+    return "NEMA/ATC SDLC";
 }
 
 const char* GetAnalyzerName()
 {
-    return "HDLC";
+    return "NEMA/ATC SDLC";
 }
 
 Analyzer* CreateAnalyzer()

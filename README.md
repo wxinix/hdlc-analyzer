@@ -2,6 +2,10 @@
 
 Saleae High-Level Data Link Control (HDLC) Analyzer
 
+## Fork Maintainer
+
+This fork is maintained by [Wuping Xin](https://github.com/wxinix).
+
 ## Getting Started
 
 The following documentation describes how to build this analyzer locally. For more detailed information about the Analyzer SDK, debugging, CI builds, and more, check out the readme in the Sample Analyzer repository.
