@@ -82,9 +82,9 @@ Connect the Saleae logic analyzer to the TS2 Type AB (EIA-485) port:
 
 Note: When using External Clock mode, the baud rate setting is ignored — timing is derived entirely from the clock signal. The baud rate only matters for the internal clock modes.
 
-### Clock Edge for NEMA TS2
+### Clock Edge for NEMA TS2 / ATC
 
-NEMA TS2 SDLC uses **Rising Edge** sampling. Per the TS2 specification, "the receiving station shall read the data ... when the voltage potential of the Tx Clock+ line makes a positive going transition with respect to the Tx Clock- line." The clock's positive-going (rising) transition occurs at the midpoint of each bit cell.
+Both NEMA TS2 and ATC use **Rising Edge** sampling. Per the TS2 specification, "the receiving station shall read the data ... when the voltage potential of the Tx Clock+ line makes a positive going transition with respect to the Tx Clock- line." The clock's positive-going (rising) transition occurs at the midpoint of each bit cell. ATC follows the same convention.
 
 If decoding produces garbled output, try switching to **Falling Edge** — some signal conditioners or level translators may invert the clock polarity.
 
