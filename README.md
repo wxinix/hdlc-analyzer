@@ -84,7 +84,7 @@ Note: When using External Clock mode, the baud rate setting is ignored — timin
 
 ### Clock Edge for NEMA TS2
 
-NEMA TS2 SDLC uses **Rising Edge** sampling. Per the TS2 specification, the transmitter shifts data out on the falling edge of the clock, and the receiver latches data on the rising edge. This is consistent with standard SDLC clocking conventions.
+NEMA TS2 SDLC uses **Rising Edge** sampling. Per the TS2 specification, "the receiving station shall read the data ... when the voltage potential of the Tx Clock+ line makes a positive going transition with respect to the Tx Clock- line." The clock's positive-going (rising) transition occurs at the midpoint of each bit cell.
 
 If decoding produces garbled output, try switching to **Falling Edge** — some signal conditioners or level translators may invert the clock polarity.
 
