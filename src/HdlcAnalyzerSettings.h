@@ -68,6 +68,46 @@ enum HdlcFlagType
 };
 
 
+// Constexpr lookup functions for enum-to-count mappings
+constexpr U32 FcsByteCount( HdlcFcsType fcsType )
+{
+    switch( fcsType )
+    {
+    case HDLC_CRC8:  return 1;
+    case HDLC_CRC16: return 2;
+    case HDLC_CRC32: return 4;
+    default:         return 0;
+    }
+}
+
+constexpr U32 FcsBitCount( HdlcFcsType fcsType )
+{
+    return FcsByteCount( fcsType ) * 8;
+}
+
+constexpr const char* FcsCrcName( HdlcFcsType fcsType )
+{
+    switch( fcsType )
+    {
+    case HDLC_CRC8:  return "8 ";
+    case HDLC_CRC16: return "16";
+    case HDLC_CRC32: return "32";
+    default:         return "";
+    }
+}
+
+constexpr U32 ControlFieldByteCount( HdlcControlType controlType )
+{
+    switch( controlType )
+    {
+    case HDLC_BASIC_CONTROL_FIELD:                   return 1;
+    case HDLC_EXTENDED_CONTROL_FIELD_MOD_128:        return 2;
+    case HDLC_EXTENDED_CONTROL_FIELD_MOD_32768:      return 4;
+    case HDLC_EXTENDED_CONTROL_FIELD_MOD_2147483648: return 8;
+    default:                                         return 0;
+    }
+}
+
 // Special values for Byte Asynchronous Transmission
 #define HDLC_FLAG_VALUE 0x7E
 #define HDLC_ESCAPE_SEQ_VALUE 0x7D

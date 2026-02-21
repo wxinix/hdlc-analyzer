@@ -191,23 +191,8 @@ void HdlcAnalyzerResults::GenControlFieldString( const Frame& frame, DisplayBase
 
 void HdlcAnalyzerResults::GenFcsFieldString( const Frame& frame, DisplayBase display_base, bool tabular )
 {
-    U32 fcsBits = 0;
-    const char* crcTypeStr = nullptr;
-    switch( mSettings->mHdlcFcs )
-    {
-    case HDLC_CRC8:
-        fcsBits = 8;
-        crcTypeStr = "8 ";
-        break;
-    case HDLC_CRC16:
-        fcsBits = 16;
-        crcTypeStr = "16";
-        break;
-    case HDLC_CRC32:
-        fcsBits = 32;
-        crcTypeStr = "32";
-        break;
-    }
+    auto fcsBits = FcsBitCount( mSettings->mHdlcFcs );
+    auto crcTypeStr = FcsCrcName( mSettings->mHdlcFcs );
 
     char readFcsStr[ 128 ];
     AnalyzerHelpers::GetNumberString( frame.mData1, display_base, fcsBits, readFcsStr, 128 );
@@ -299,19 +284,7 @@ void HdlcAnalyzerResults::GenerateExportFile( const char* file, DisplayBase disp
 
     const char* sepChar = " ";
 
-    U8 fcsBits = 0;
-    switch( mSettings->mHdlcFcs )
-    {
-    case HDLC_CRC8:
-        fcsBits = 8;
-        break;
-    case HDLC_CRC16:
-        fcsBits = 16;
-        break;
-    case HDLC_CRC32:
-        fcsBits = 32;
-        break;
-    }
+    auto fcsBits = FcsBitCount( mSettings->mHdlcFcs );
 
     fileStream << "Time[s],Address,Control,Information,FCS" << std::endl;
 
@@ -321,22 +294,7 @@ void HdlcAnalyzerResults::GenerateExportFile( const char* file, DisplayBase disp
     auto numFrames = GetNumFrames();
     U64 frameNumber = 0;
 
-    U32 numberOfControlBytes = 0;
-    switch( mSettings->mHdlcControl )
-    {
-    case HDLC_BASIC_CONTROL_FIELD:
-        numberOfControlBytes = 1;
-        break;
-    case HDLC_EXTENDED_CONTROL_FIELD_MOD_128:
-        numberOfControlBytes = 2;
-        break;
-    case HDLC_EXTENDED_CONTROL_FIELD_MOD_32768:
-        numberOfControlBytes = 4;
-        break;
-    case HDLC_EXTENDED_CONTROL_FIELD_MOD_2147483648:
-        numberOfControlBytes = 8;
-        break;
-    }
+    auto numberOfControlBytes = ControlFieldByteCount( mSettings->mHdlcControl );
 
     if( numFrames == 0 )
     {

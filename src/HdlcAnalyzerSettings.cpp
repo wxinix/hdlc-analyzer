@@ -2,6 +2,25 @@
 #include <AnalyzerHelpers.h>
 #include <memory>
 
+namespace {
+
+// Type-safe enum serialization helpers for SimpleArchive
+template<typename EnumT>
+void LoadEnum( SimpleArchive& archive, EnumT& value )
+{
+    U32 tmp;
+    archive >> tmp;
+    value = static_cast<EnumT>( tmp );
+}
+
+template<typename EnumT>
+void SaveEnum( SimpleArchive& archive, EnumT value )
+{
+    archive << static_cast<U32>( value );
+}
+
+} // anonymous namespace
+
 HdlcAnalyzerSettings::HdlcAnalyzerSettings()
     : mInputChannel( UNDEFINED_CHANNEL ),
       mClockChannel( UNDEFINED_CHANNEL ),
@@ -131,19 +150,13 @@ void HdlcAnalyzerSettings::LoadSettings( const char* settings )
     SimpleArchive text_archive;
     text_archive.SetString( settings );
 
-    U32 tmp;
-
     text_archive >> mInputChannel;
     text_archive >> mBitRate;
 
-    text_archive >> tmp;
-    mTransmissionMode = static_cast<HdlcTransmissionModeType>( tmp );
-    text_archive >> tmp;
-    mHdlcAddr = static_cast<HdlcAddressType>( tmp );
-    text_archive >> tmp;
-    mHdlcControl = static_cast<HdlcControlType>( tmp );
-    text_archive >> tmp;
-    mHdlcFcs = static_cast<HdlcFcsType>( tmp );
+    LoadEnum( text_archive, mTransmissionMode );
+    LoadEnum( text_archive, mHdlcAddr );
+    LoadEnum( text_archive, mHdlcControl );
+    LoadEnum( text_archive, mHdlcFcs );
 
     text_archive >> mClockChannel;
     text_archive >> mClockEdge;
@@ -161,10 +174,10 @@ const char* HdlcAnalyzerSettings::SaveSettings()
 
     text_archive << mInputChannel;
     text_archive << mBitRate;
-    text_archive << static_cast<U32>( mTransmissionMode );
-    text_archive << static_cast<U32>( mHdlcAddr );
-    text_archive << static_cast<U32>( mHdlcControl );
-    text_archive << static_cast<U32>( mHdlcFcs );
+    SaveEnum( text_archive, mTransmissionMode );
+    SaveEnum( text_archive, mHdlcAddr );
+    SaveEnum( text_archive, mHdlcControl );
+    SaveEnum( text_archive, mHdlcFcs );
     text_archive << mClockChannel;
     text_archive << mClockEdge;
 

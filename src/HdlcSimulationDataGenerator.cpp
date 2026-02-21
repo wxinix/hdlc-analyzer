@@ -4,6 +4,19 @@
 #include <algorithm>
 #include <stdlib.h>
 
+namespace {
+
+// CRC computation template: appends CrcBits/8 zero bytes, then performs polynomial division
+template<U32 CrcBits>
+std::vector<U8> ComputeCrc( const std::vector<U8>& stream, const std::vector<U8>& divisor )
+{
+    auto result = stream;
+    result.resize( result.size() + CrcBits / 8, 0x00 );
+    return HdlcSimulationDataGenerator::CrcDivision( result, divisor, CrcBits );
+}
+
+} // anonymous namespace
+
 HdlcSimulationDataGenerator::HdlcSimulationDataGenerator()
     : mSettings( nullptr ),
       mSimulationSampleRateHz( 0 ),
@@ -64,14 +77,7 @@ void HdlcSimulationDataGenerator::GenerateAbortFramesIndexes()
 
 bool HdlcSimulationDataGenerator::ContainsElement( U32 index ) const
 {
-    for( U32 i = 0; i < mAbortFramesIndexes.size(); ++i )
-    {
-        if( mAbortFramesIndexes.at( i ) == index )
-        {
-            return true;
-        }
-    }
-    return false;
+    return std::find( mAbortFramesIndexes.begin(), mAbortFramesIndexes.end(), index ) != mAbortFramesIndexes.end();
 }
 
 U32 HdlcSimulationDataGenerator::GenerateSimulationData( U64 largest_sample_requested, U32 sample_rate,
@@ -223,7 +229,7 @@ void HdlcSimulationDataGenerator::CreateHDLCFrame( const std::vector<U8>& addres
     }
 }
 
-std::vector<U8> HdlcSimulationDataGenerator::GenFcs( HdlcFcsType fcsType, const std::vector<U8>& stream ) const
+std::vector<U8> HdlcSimulationDataGenerator::GenFcs( HdlcFcsType fcsType, const std::vector<U8>& stream )
 {
     std::vector<U8> crcRet;
     switch( fcsType )
@@ -492,59 +498,20 @@ std::vector<U8> HdlcSimulationDataGenerator::CrcDivision( const std::vector<U8>&
     return crcRet;
 }
 
+// ISO/IEC 13239:2002(E) page 14 - CRC8 Divisor (9 bits): x^8 + x^2 + x + 1
 std::vector<U8> HdlcSimulationDataGenerator::Crc8( const std::vector<U8>& stream )
 {
-    std::vector<U8> result = stream;
-    result.push_back( 0x00 );
-
-    // ISO/IEC 13239:2002(E) page 14
-    // CRC8 Divisor (9 bits) - x**8 + x**2 + x + 1
-    std::vector<U8> divisor;
-    divisor.push_back( 0x83 );
-    divisor.push_back( 0x80 );
-
-    std::vector<U8> crc8Ret = CrcDivision( result, divisor, 8 );
-    return crc8Ret;
+    return ComputeCrc<8>( stream, { 0x83, 0x80 } );
 }
 
+// ISO/IEC 13239:2002(E) page 14 - CRC16 Divisor (17 bits): x^16 + x^12 + x^5 + 1
 std::vector<U8> HdlcSimulationDataGenerator::Crc16( const std::vector<U8>& stream )
 {
-    std::vector<U8> result = stream;
-
-    // Append 16 0-bits
-    result.push_back( 0x00 );
-    result.push_back( 0x00 );
-
-    // ISO/IEC 13239:2002(E) page 14
-    // CRC16 Divisor (17 bits) - x**16 + x**12 + x**5 + 1 (0x1021)
-    std::vector<U8> divisor;
-    divisor.push_back( 0x88 );
-    divisor.push_back( 0x10 );
-    divisor.push_back( 0x80 );
-
-    std::vector<U8> crc16Ret = CrcDivision( result, divisor, 16 );
-
-    return crc16Ret;
+    return ComputeCrc<16>( stream, { 0x88, 0x10, 0x80 } );
 }
 
+// ISO/IEC 13239:2002(E) page 13 - CRC32 Divisor (33 bits)
 std::vector<U8> HdlcSimulationDataGenerator::Crc32( const std::vector<U8>& stream )
 {
-    std::vector<U8> result = stream;
-    // Append 32 0-bits
-    result.push_back( 0x00 );
-    result.push_back( 0x00 );
-    result.push_back( 0x00 );
-    result.push_back( 0x00 );
-
-    // ISO/IEC 13239:2002(E) page 13
-    // CRC32 Divisor (33 bits)
-    std::vector<U8> divisor;
-    divisor.push_back( 0x82 );
-    divisor.push_back( 0x60 );
-    divisor.push_back( 0x8E );
-    divisor.push_back( 0xDB );
-    divisor.push_back( 0x80 );
-
-    std::vector<U8> crc32Ret = CrcDivision( result, divisor, 32 );
-    return crc32Ret;
+    return ComputeCrc<32>( stream, { 0x82, 0x60, 0x8E, 0xDB, 0x80 } );
 }

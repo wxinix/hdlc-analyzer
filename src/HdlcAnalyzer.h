@@ -70,6 +70,9 @@ class HdlcAnalyzer : public Analyzer2
     HdlcByte ByteAsyncReadByte();
     HdlcByte ByteAsyncReadByte_();
 
+    // Flag frame emission helper
+    void EmitFlagFrames( const std::vector<HdlcByte>& flags, bool markLastAsStart );
+
     // Helper functions
     Frame CreateFrame( U8 mType, U64 mStartingSampleInclusive, U64 mEndingSampleInclusive, U64 mData1 = 0, U64 mData2 = 0,
                        U8 mFlags = 0 ) const;

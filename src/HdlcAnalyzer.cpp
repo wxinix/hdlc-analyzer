@@ -166,20 +166,33 @@ HdlcByte HdlcAnalyzer::ProcessFlags()
     return addressByte;
 }
 
-// Helper: generate flag frames from a vector of flag bytes, marking the last as start flag
-template<typename FlagVec>
-static void EmitFlagFrames( HdlcAnalyzer& analyzer, const FlagVec& flags, bool markLastAsStart,
-                            Frame( HdlcAnalyzer::*createFrame )( U8, U64, U64, U64, U64, U8 ) const,
-                            void( HdlcAnalyzer::*addFrame )( const Frame& ) )
+namespace {
+
+// Generic tail-splitting template: removes the last N elements from vec and returns them
+template<typename T>
+std::vector<T> SplitTail( std::vector<T>& vec, size_t n )
+{
+    std::vector<T> tail;
+    if( vec.size() >= n )
+    {
+        tail.insert( tail.end(), vec.end() - n, vec.end() );
+        vec.erase( vec.end() - n, vec.end() );
+    }
+    return tail;
+}
+
+} // anonymous namespace
+
+void HdlcAnalyzer::EmitFlagFrames( const std::vector<HdlcByte>& flags, bool markLastAsStart )
 {
     for( size_t i = 0; i < flags.size(); ++i )
     {
-        auto frame = ( analyzer.*createFrame )( HDLC_FIELD_FLAG, flags[i].startSample, flags[i].endSample, HDLC_FLAG_FILL, 0, 0 );
+        auto frame = CreateFrame( HDLC_FIELD_FLAG, flags[i].startSample, flags[i].endSample, HDLC_FLAG_FILL );
         if( markLastAsStart && i == flags.size() - 1 )
         {
             frame.mData1 = HDLC_FLAG_START;
         }
-        ( analyzer.*addFrame )( frame );
+        AddFrameToResults( frame );
     }
 }
 
@@ -192,12 +205,7 @@ void HdlcAnalyzer::BitSyncProcessFlags()
     {
         if( AbortComing() )
         {
-            // Show fill flags
-            for( const auto& flag : flags )
-            {
-                auto frame = CreateFrame( HDLC_FIELD_FLAG, flag.startSample, flag.endSample, HDLC_FLAG_FILL );
-                AddFrameToResults( frame );
-            }
+            EmitFlagFrames( flags, false );
             flags.clear();
 
             mAbtFrame = CreateFrame( HDLC_ABORT_SEQ, mHdlc->GetSampleNumber(), mHdlc->GetSampleNumber() + mSamplesIn8Bits );
@@ -250,15 +258,7 @@ void HdlcAnalyzer::BitSyncProcessFlags()
 
     if( !mAbortFrame )
     {
-        for( size_t i = 0; i < flags.size(); ++i )
-        {
-            auto frame = CreateFrame( HDLC_FIELD_FLAG, flags[i].startSample, flags[i].endSample, HDLC_FLAG_FILL );
-            if( i == flags.size() - 1 )
-            {
-                frame.mData1 = HDLC_FLAG_START;
-            }
-            AddFrameToResults( frame );
-        }
+        EmitFlagFrames( flags, true );
     }
 }
 
@@ -475,11 +475,7 @@ void HdlcAnalyzer::BitSyncExtClkProcessFlags()
         if( mConsecutiveOnes >= 7 )
         {
             // Abort detected
-            for( const auto& flag : flags )
-            {
-                auto frame = CreateFrame( HDLC_FIELD_FLAG, flag.startSample, flag.endSample, HDLC_FLAG_FILL );
-                AddFrameToResults( frame );
-            }
+            EmitFlagFrames( flags, false );
 
             mAbtFrame = CreateFrame( HDLC_ABORT_SEQ, startSample, endSample );
             mAbortFrame = true;
@@ -504,15 +500,7 @@ void HdlcAnalyzer::BitSyncExtClkProcessFlags()
 
     if( !mAbortFrame )
     {
-        for( size_t i = 0; i < flags.size(); ++i )
-        {
-            auto frame = CreateFrame( HDLC_FIELD_FLAG, flags[i].startSample, flags[i].endSample, HDLC_FLAG_FILL );
-            if( i == flags.size() - 1 )
-            {
-                frame.mData1 = HDLC_FLAG_START;
-            }
-            AddFrameToResults( frame );
-        }
+        EmitFlagFrames( flags, true );
     }
 }
 
@@ -757,19 +745,7 @@ void HdlcAnalyzer::ProcessControlField()
 
         if( frameType != HDLC_U_FRAME )
         {
-            U32 ctlBytes = 0;
-            switch( mSettings->mHdlcControl )
-            {
-            case HDLC_EXTENDED_CONTROL_FIELD_MOD_128:
-                ctlBytes = 2;
-                break;
-            case HDLC_EXTENDED_CONTROL_FIELD_MOD_32768:
-                ctlBytes = 4;
-                break;
-            case HDLC_EXTENDED_CONTROL_FIELD_MOD_2147483648:
-                ctlBytes = 8;
-                break;
-            }
+            auto ctlBytes = ControlFieldByteCount( mSettings->mHdlcControl );
             for( U32 i = 1; i < ctlBytes; ++i )
             {
                 auto byte = ReadByte();
@@ -829,37 +805,7 @@ void HdlcAnalyzer::InfoAndFcsField( const std::vector<HdlcByte>& informationAndF
 
     if( !mAbortFrame )
     {
-        // split information and fcs vector
-        switch( mSettings->mHdlcFcs )
-        {
-        case HDLC_CRC8:
-        {
-            if( !information.empty() )
-            {
-                fcs.push_back( information.back() );
-                information.pop_back();
-            }
-            break;
-        }
-        case HDLC_CRC16:
-        {
-            if( information.size() >= 2 )
-            {
-                fcs.insert( fcs.end(), information.end() - 2, information.end() );
-                information.erase( information.end() - 2, information.end() );
-            }
-            break;
-        }
-        case HDLC_CRC32:
-        {
-            if( information.size() >= 4 )
-            {
-                fcs.insert( fcs.end(), information.end() - 4, information.end() );
-                information.erase( information.end() - 4, information.end() );
-            }
-            break;
-        }
-        }
+        fcs = SplitTail( information, FcsByteCount( mSettings->mHdlcFcs ) );
     }
 
     ProcessInformationField( information );
@@ -891,39 +837,10 @@ void HdlcAnalyzer::AddFrameToResults( const Frame& frame )
 
 void HdlcAnalyzer::ProcessFcsField( const std::vector<HdlcByte>& fcs )
 {
-    std::vector<U8> calculatedFcs;
     auto readFcs = HdlcBytesToVectorBytes( fcs );
 
-    switch( mSettings->mHdlcFcs )
-    {
-    case HDLC_CRC8:
-    {
-        if( !mCurrentFrameBytes.empty() )
-        {
-            mCurrentFrameBytes.pop_back();
-        }
-        calculatedFcs = HdlcSimulationDataGenerator::Crc8( mCurrentFrameBytes );
-        break;
-    }
-    case HDLC_CRC16:
-    {
-        if( mCurrentFrameBytes.size() >= 2 )
-        {
-            mCurrentFrameBytes.erase( mCurrentFrameBytes.end() - 2, mCurrentFrameBytes.end() );
-        }
-        calculatedFcs = HdlcSimulationDataGenerator::Crc16( mCurrentFrameBytes );
-        break;
-    }
-    case HDLC_CRC32:
-    {
-        if( mCurrentFrameBytes.size() >= 4 )
-        {
-            mCurrentFrameBytes.erase( mCurrentFrameBytes.end() - 4, mCurrentFrameBytes.end() );
-        }
-        calculatedFcs = HdlcSimulationDataGenerator::Crc32( mCurrentFrameBytes );
-        break;
-    }
-    }
+    SplitTail( mCurrentFrameBytes, FcsByteCount( mSettings->mHdlcFcs ) );
+    auto calculatedFcs = HdlcSimulationDataGenerator::GenFcs( mSettings->mHdlcFcs, mCurrentFrameBytes );
 
     auto frame = CreateFrame( HDLC_FIELD_FCS, fcs.front().startSample, fcs.back().endSample, VectorToValue( readFcs ),
                               VectorToValue( calculatedFcs ) );

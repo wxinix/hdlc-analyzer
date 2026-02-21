@@ -20,6 +20,7 @@ class HdlcSimulationDataGenerator
     static std::vector<U8> Crc32( const std::vector<U8>& stream );
     static std::vector<U8> CrcDivision( const std::vector<U8>& stream, const std::vector<U8>& genPoly, U32 crcNumber );
     static std::vector<BitState> BytesVectorToBitsVector( const std::vector<U8>& v, U32 numberOfBits );
+    static std::vector<U8> GenFcs( HdlcFcsType fcsType, const std::vector<U8>& stream );
 
   protected:
     void CreateHDLCFrame( const std::vector<U8>& address, const std::vector<U8>& control, const std::vector<U8>& information );
@@ -37,7 +38,6 @@ class HdlcSimulationDataGenerator
 
     // Helper functions
     bool AbortFrameAndGenIndex( U32 N );
-    std::vector<U8> GenFcs( HdlcFcsType fcsType, const std::vector<U8>& stream ) const;
 
     void GenerateAbortFramesIndexes();
     bool ContainsElement( U32 index ) const;
