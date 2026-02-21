@@ -10,7 +10,7 @@ class HdlcSimulationDataGenerator
 {
   public:
     HdlcSimulationDataGenerator();
-    ~HdlcSimulationDataGenerator();
+    ~HdlcSimulationDataGenerator() = default;
 
     void Initialize( U32 simulation_sample_rate, HdlcAnalyzerSettings* settings );
     U32 GenerateSimulationData( U64 newest_sample_requested, U32 sample_rate, SimulationChannelDescriptor** simulation_channel );
@@ -55,7 +55,7 @@ class HdlcSimulationDataGenerator
     U32 mWrongFramesSeparation;
 
     U8 mControlValue;
-    U8 mAddresByteValue;
+    U8 mAddressByteValue;
     U8 mInformationByteValue;
 
     HdlcFrameType mFrameTypes[ 3 ];

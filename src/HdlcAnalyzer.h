@@ -108,7 +108,7 @@ class HdlcAnalyzer : public Analyzer2
     std::vector<Frame> mResultFrames;
 
     HdlcSimulationDataGenerator mSimulationDataGenerator;
-    bool mSimulationInitilized;
+    bool mSimulationInitialized;
 };
 
 extern "C" ANALYZER_EXPORT const char* __cdecl GetAnalyzerName();

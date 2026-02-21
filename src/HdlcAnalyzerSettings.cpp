@@ -2,22 +2,23 @@
 #include <AnalyzerHelpers.h>
 #include <memory>
 
-namespace {
-
-// Type-safe enum serialization helpers for SimpleArchive
-template<typename EnumT>
-void LoadEnum( SimpleArchive& archive, EnumT& value )
+namespace
 {
-    U32 tmp;
-    archive >> tmp;
-    value = static_cast<EnumT>( tmp );
-}
 
-template<typename EnumT>
-void SaveEnum( SimpleArchive& archive, EnumT value )
-{
-    archive << static_cast<U32>( value );
-}
+    // Type-safe enum serialization helpers for SimpleArchive
+    template <typename EnumT>
+    void LoadEnum( SimpleArchive& archive, EnumT& value )
+    {
+        U32 tmp;
+        archive >> tmp;
+        value = static_cast<EnumT>( tmp );
+    }
+
+    template <typename EnumT>
+    void SaveEnum( SimpleArchive& archive, EnumT value )
+    {
+        archive << static_cast<U32>( value );
+    }
 
 } // anonymous namespace
 
@@ -48,8 +49,10 @@ HdlcAnalyzerSettings::HdlcAnalyzerSettings()
 
     mHdlcTransmissionInterface = std::make_unique<AnalyzerSettingInterfaceNumberList>();
     mHdlcTransmissionInterface->SetTitleAndTooltip( "Transmission Mode", "Specify the transmission mode of the HDLC frames" );
-    mHdlcTransmissionInterface->AddNumber( HDLC_TRANSMISSION_BIT_SYNC, "Bit Synchronous", "Bit-oriented transmission using bit stuffing (internal clock)" );
-    mHdlcTransmissionInterface->AddNumber( HDLC_TRANSMISSION_BIT_SYNC_EXT_CLK, "Bit Synchronous (External Clock)", "Bit-oriented transmission using external clock signal" );
+    mHdlcTransmissionInterface->AddNumber( HDLC_TRANSMISSION_BIT_SYNC, "Bit Synchronous",
+                                           "Bit-oriented transmission using bit stuffing (internal clock)" );
+    mHdlcTransmissionInterface->AddNumber( HDLC_TRANSMISSION_BIT_SYNC_EXT_CLK, "Bit Synchronous (External Clock)",
+                                           "Bit-oriented transmission using external clock signal" );
     mHdlcTransmissionInterface->AddNumber( HDLC_TRANSMISSION_BYTE_ASYNC, "Byte Asynchronous",
                                            "Byte asynchronous transmission using byte stuffing (Also known as start/stop mode)" );
     mHdlcTransmissionInterface->SetNumber( mTransmissionMode );
@@ -98,10 +101,6 @@ HdlcAnalyzerSettings::HdlcAnalyzerSettings()
     ClearChannels();
     AddChannel( mInputChannel, "HDLC", false );
     AddChannel( mClockChannel, "Clock", false );
-}
-
-HdlcAnalyzerSettings::~HdlcAnalyzerSettings()
-{
 }
 
 U8 HdlcAnalyzerSettings::Bit5Inv( U8 value )

@@ -2,6 +2,7 @@
 #define HDLC_ANALYZER_RESULTS
 
 #include <AnalyzerResults.h>
+#include <iosfwd>
 #include <string>
 
 class HdlcAnalyzer;
@@ -11,7 +12,7 @@ class HdlcAnalyzerResults : public AnalyzerResults
 {
   public:
     HdlcAnalyzerResults( HdlcAnalyzer* analyzer, HdlcAnalyzerSettings* settings );
-    ~HdlcAnalyzerResults() override;
+    ~HdlcAnalyzerResults() override = default;
 
     void GenerateBubbleText( U64 frame_index, Channel& channel, DisplayBase display_base ) override;
     void GenerateExportFile( const char* file, DisplayBase display_base, U32 export_type_user_id ) override;
@@ -32,6 +33,14 @@ class HdlcAnalyzerResults : public AnalyzerResults
 
     std::string EscapeByteStr( const Frame& frame );
     std::string GenEscapedString( const Frame& frame );
+
+    // Export helpers — each returns true if end-of-data was reached (caller should return).
+    // doAbortFrame is set to true if an abort/error requires skipping the current row.
+    bool ExportAddressField( std::ofstream& fileStream, DisplayBase display_base, const Frame& firstAddressFrame, U64& frameNumber,
+                             U64 numFrames, bool& doAbortFrame );
+    bool ExportControlField( std::ofstream& fileStream, DisplayBase display_base, U64& frameNumber, U64 numFrames, bool& doAbortFrame );
+    bool ExportInformationField( std::ofstream& fileStream, DisplayBase display_base, U64& frameNumber, U64 numFrames, bool& doAbortFrame );
+    bool ExportFcsField( std::ofstream& fileStream, DisplayBase display_base, U64& frameNumber, U64 numFrames );
 
   protected: // vars
     HdlcAnalyzerSettings* mSettings;

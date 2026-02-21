@@ -2,18 +2,19 @@
 #include "HdlcAnalyzerSettings.h"
 #include <AnalyzerHelpers.h>
 #include <algorithm>
-#include <stdlib.h>
+#include <cstdlib>
 
-namespace {
-
-// CRC computation template: appends CrcBits/8 zero bytes, then performs polynomial division
-template<U32 CrcBits>
-std::vector<U8> ComputeCrc( const std::vector<U8>& stream, const std::vector<U8>& divisor )
+namespace
 {
-    auto result = stream;
-    result.resize( result.size() + CrcBits / 8, 0x00 );
-    return HdlcSimulationDataGenerator::CrcDivision( result, divisor, CrcBits );
-}
+
+    // CRC computation template: appends CrcBits/8 zero bytes, then performs polynomial division
+    template <U32 CrcBits>
+    std::vector<U8> ComputeCrc( const std::vector<U8>& stream, const std::vector<U8>& divisor )
+    {
+        auto result = stream;
+        result.resize( result.size() + CrcBits / 8, 0x00 );
+        return HdlcSimulationDataGenerator::CrcDivision( result, divisor, CrcBits );
+    }
 
 } // anonymous namespace
 
@@ -24,7 +25,7 @@ HdlcSimulationDataGenerator::HdlcSimulationDataGenerator()
       mAbortByte( 0 ),
       mWrongFramesSeparation( 0 ),
       mControlValue( 0 ),
-      mAddresByteValue( 0 ),
+      mAddressByteValue( 0 ),
       mInformationByteValue( 0 ),
       mSamplesInHalfPeriod( 0 ),
       mSamplesInAFlag( 0 )
@@ -33,10 +34,6 @@ HdlcSimulationDataGenerator::HdlcSimulationDataGenerator()
     mFrameTypes[ 0 ] = HDLC_I_FRAME;
     mFrameTypes[ 1 ] = HDLC_S_FRAME;
     mFrameTypes[ 2 ] = HDLC_U_FRAME;
-}
-
-HdlcSimulationDataGenerator::~HdlcSimulationDataGenerator()
-{
 }
 
 void HdlcSimulationDataGenerator::Initialize( U32 simulation_sample_rate, HdlcAnalyzerSettings* settings )
@@ -61,7 +58,7 @@ void HdlcSimulationDataGenerator::Initialize( U32 simulation_sample_rate, HdlcAn
     mWrongFramesSeparation = ( rand() % 10 ) + 10; // [15..30]
 
     mControlValue = 0;
-    mAddresByteValue = 0;
+    mAddressByteValue = 0;
     mInformationByteValue = 0;
 }
 
@@ -96,7 +93,7 @@ U32 HdlcSimulationDataGenerator::GenerateSimulationData( U64 largest_sample_requ
         U32 sizeOfInformation = ( frameType == HDLC_S_FRAME ) ? 0 : ( ( rand() % 4 ) + 1 );
         U64 addressBytes = ( ( rand() % 4 ) + 1 );
 
-        std::vector<U8> address = GenAddressField( mSettings->mHdlcAddr, addressBytes, mAddresByteValue++ );
+        std::vector<U8> address = GenAddressField( mSettings->mHdlcAddr, addressBytes, mAddressByteValue++ );
         std::vector<U8> control = GenControlField( frameType, mSettings->mHdlcControl, mControlValue++ );
         std::vector<U8> information = GenInformationField( sizeOfInformation, mInformationByteValue++ );
 
@@ -206,7 +203,8 @@ std::vector<U8> HdlcSimulationDataGenerator::GenInformationField( U16 size, U8 v
     return informationRet;
 }
 
-void HdlcSimulationDataGenerator::CreateHDLCFrame( const std::vector<U8>& address, const std::vector<U8>& control, const std::vector<U8>& information )
+void HdlcSimulationDataGenerator::CreateHDLCFrame( const std::vector<U8>& address, const std::vector<U8>& control,
+                                                   const std::vector<U8>& information )
 {
     std::vector<U8> allFields;
 
@@ -414,9 +412,7 @@ void HdlcSimulationDataGenerator::CreateAsyncByte( U8 byte )
     mHdlcSimulationData.Advance( mSamplesInHalfPeriod );
 }
 
-//
-////////////////////// Static functions /////////////////////////////////////////////////////
-//
+// ─── Static Functions ────────────────────────────────────────────────
 
 std::vector<BitState> HdlcSimulationDataGenerator::BytesVectorToBitsVector( const std::vector<U8>& v, U32 numberOfBits )
 {

@@ -7,7 +7,7 @@
 HdlcAnalyzer::HdlcAnalyzer()
     : Analyzer2(),
       mSettings( new HdlcAnalyzerSettings() ),
-      mSimulationInitilized( false ),
+      mSimulationInitialized( false ),
       mResults( nullptr ),
       mHdlc( nullptr ),
       mClock( nullptr ),
@@ -101,9 +101,7 @@ void HdlcAnalyzer::WorkerThread()
     }
 }
 
-//
-/////////////// SYNC BIT TRAMISSION ///////////////////////////////////////////////
-//
+// ─── Bit Synchronous Transmission ────────────────────────────────────
 
 void HdlcAnalyzer::ProcessHDLCFrame()
 {
@@ -166,20 +164,21 @@ HdlcByte HdlcAnalyzer::ProcessFlags()
     return addressByte;
 }
 
-namespace {
-
-// Generic tail-splitting template: removes the last N elements from vec and returns them
-template<typename T>
-std::vector<T> SplitTail( std::vector<T>& vec, size_t n )
+namespace
 {
-    std::vector<T> tail;
-    if( vec.size() >= n )
+
+    // Generic tail-splitting template: removes the last N elements from vec and returns them
+    template <typename T>
+    std::vector<T> SplitTail( std::vector<T>& vec, size_t n )
     {
-        tail.insert( tail.end(), vec.end() - n, vec.end() );
-        vec.erase( vec.end() - n, vec.end() );
+        std::vector<T> tail;
+        if( vec.size() >= n )
+        {
+            tail.insert( tail.end(), vec.end() - n, vec.end() );
+            vec.erase( vec.end() - n, vec.end() );
+        }
+        return tail;
     }
-    return tail;
-}
 
 } // anonymous namespace
 
@@ -187,7 +186,7 @@ void HdlcAnalyzer::EmitFlagFrames( const std::vector<HdlcByte>& flags, bool mark
 {
     for( size_t i = 0; i < flags.size(); ++i )
     {
-        auto frame = CreateFrame( HDLC_FIELD_FLAG, flags[i].startSample, flags[i].endSample, HDLC_FLAG_FILL );
+        auto frame = CreateFrame( HDLC_FIELD_FLAG, flags[ i ].startSample, flags[ i ].endSample, HDLC_FLAG_FILL );
         if( markLastAsStart && i == flags.size() - 1 )
         {
             frame.mData1 = HDLC_FLAG_START;
@@ -338,9 +337,7 @@ bool HdlcAnalyzer::AbortComing()
     return !mHdlc->WouldAdvancingCauseTransition( mSamplesInAFlag + mSamplesInHalfPeriod * 0.5 );
 }
 
-//
-/////////////// SYNC BIT EXTERNAL CLOCK TRANSMISSION /////////////////////////////////
-//
+// ─── Bit Synchronous External Clock Transmission ─────────────────────
 
 void HdlcAnalyzer::AdvanceClockToActiveEdge()
 {
@@ -599,9 +596,7 @@ HdlcByte HdlcAnalyzer::BitSyncReadByte()
     return bs;
 }
 
-//
-/////////////// ASYNC BYTE TRAMISSION ///////////////////////////////////////////////
-//
+// ─── Byte Asynchronous Transmission ──────────────────────────────────
 
 // Interframe time fill: ISO/IEC 13239:2002(E) pag. 21
 HdlcByte HdlcAnalyzer::ByteAsyncProcessFlags()
@@ -642,7 +637,7 @@ void HdlcAnalyzer::GenerateFlagsFrames( std::vector<HdlcByte> readBytes )
     // Generate the flag frames and return non-flag byte after the flags
     for( size_t i = 0; i < readBytes.size() - 1; ++i )
     {
-        const auto& asyncByte = readBytes[i];
+        const auto& asyncByte = readBytes[ i ];
 
         auto frame = CreateFrame( HDLC_FIELD_FLAG, asyncByte.startSample, asyncByte.endSample );
 
@@ -823,7 +818,7 @@ void HdlcAnalyzer::ProcessInformationField( const std::vector<HdlcByte>& informa
 {
     for( U32 i = 0; i < information.size(); ++i )
     {
-        const auto& byte = information[i];
+        const auto& byte = information[ i ];
         U8 flag = ( byte.escaped ) ? HDLC_ESCAPED_BYTE : 0;
         auto frame = CreateFrame( HDLC_FIELD_INFORMATION, byte.startSample, byte.endSample, byte.value, i, flag );
         AddFrameToResults( frame );
@@ -890,9 +885,9 @@ HdlcByte HdlcAnalyzer::ByteAsyncReadByte()
         }
         else
         {
-            // Real data: with the bit-5 inverted (that's what we use for the crc)
-            auto complimented = HdlcAnalyzerSettings::Bit5Inv( ret.value );
-            mCurrentFrameBytes.push_back( complimented );
+            // Real data: with the bit-5 complemented (that's what we use for the crc)
+            auto complemented = HdlcAnalyzerSettings::Bit5Inv( ret.value );
+            mCurrentFrameBytes.push_back( complemented );
             // ret.value = complimented;
             ret.startSample = startSampleEsc;
             ret.escaped = true;
@@ -942,9 +937,7 @@ HdlcByte HdlcAnalyzer::ByteAsyncReadByte_()
 }
 
 
-//
-///////////////////////////// Helper functions ///////////////////////////////////////////
-//
+// ─── Helper Functions ────────────────────────────────────────────────
 
 // "Ctor" for the Frame class
 Frame HdlcAnalyzer::CreateFrame( U8 mType, U64 mStartingSampleInclusive, U64 mEndingSampleInclusive, U64 mData1, U64 mData2,
@@ -979,7 +972,7 @@ U64 HdlcAnalyzer::VectorToValue( const std::vector<U8>& v ) const
     auto j = 8 * ( v.size() - 1 );
     for( size_t i = 0; i < v.size(); ++i )
     {
-        value |= ( static_cast<U64>( v[i] ) << j );
+        value |= ( static_cast<U64>( v[ i ] ) << j );
         j -= 8;
     }
     return value;
@@ -1019,10 +1012,10 @@ void HdlcAnalyzer::SetupResults()
 U32 HdlcAnalyzer::GenerateSimulationData( U64 minimum_sample_index, U32 device_sample_rate,
                                           SimulationChannelDescriptor** simulation_channels )
 {
-    if( !mSimulationInitilized )
+    if( !mSimulationInitialized )
     {
         mSimulationDataGenerator.Initialize( GetSimulationSampleRate(), mSettings.get() );
-        mSimulationInitilized = true;
+        mSimulationInitialized = true;
     }
 
     return mSimulationDataGenerator.GenerateSimulationData( minimum_sample_index, device_sample_rate, simulation_channels );
