@@ -1,5 +1,6 @@
 #include "HdlcAnalyzerSettings.h"
 #include <AnalyzerHelpers.h>
+#include <memory>
 
 HdlcAnalyzerSettings::HdlcAnalyzerSettings()
     : mInputChannel( UNDEFINED_CHANNEL ),
@@ -11,22 +12,22 @@ HdlcAnalyzerSettings::HdlcAnalyzerSettings()
       mHdlcControl( HDLC_BASIC_CONTROL_FIELD ),
       mHdlcFcs( HDLC_CRC16 )
 {
-    mInputChannelInterface.reset( new AnalyzerSettingInterfaceChannel() );
+    mInputChannelInterface = std::make_unique<AnalyzerSettingInterfaceChannel>();
     mInputChannelInterface->SetTitleAndTooltip( "HDLC", "Standard HDLC" );
     mInputChannelInterface->SetChannel( mInputChannel );
 
-    mClockChannelInterface.reset( new AnalyzerSettingInterfaceChannel() );
+    mClockChannelInterface = std::make_unique<AnalyzerSettingInterfaceChannel>();
     mClockChannelInterface->SetTitleAndTooltip( "Clock", "External clock signal for Bit Synchronous (External Clock) mode" );
     mClockChannelInterface->SetChannel( mClockChannel );
     mClockChannelInterface->SetSelectionOfNoneIsAllowed( true );
 
-    mBitRateInterface.reset( new AnalyzerSettingInterfaceInteger() );
+    mBitRateInterface = std::make_unique<AnalyzerSettingInterfaceInteger>();
     mBitRateInterface->SetTitleAndTooltip( "Baud Rate", "Specify the baud rate in symbols per second." );
     mBitRateInterface->SetMax( 6000000 );
     mBitRateInterface->SetMin( 1 );
     mBitRateInterface->SetInteger( mBitRate );
 
-    mHdlcTransmissionInterface.reset( new AnalyzerSettingInterfaceNumberList() );
+    mHdlcTransmissionInterface = std::make_unique<AnalyzerSettingInterfaceNumberList>();
     mHdlcTransmissionInterface->SetTitleAndTooltip( "Transmission Mode", "Specify the transmission mode of the HDLC frames" );
     mHdlcTransmissionInterface->AddNumber( HDLC_TRANSMISSION_BIT_SYNC, "Bit Synchronous", "Bit-oriented transmission using bit stuffing (internal clock)" );
     mHdlcTransmissionInterface->AddNumber( HDLC_TRANSMISSION_BIT_SYNC_EXT_CLK, "Bit Synchronous (External Clock)", "Bit-oriented transmission using external clock signal" );
@@ -34,19 +35,19 @@ HdlcAnalyzerSettings::HdlcAnalyzerSettings()
                                            "Byte asynchronous transmission using byte stuffing (Also known as start/stop mode)" );
     mHdlcTransmissionInterface->SetNumber( mTransmissionMode );
 
-    mClockEdgeInterface.reset( new AnalyzerSettingInterfaceNumberList() );
+    mClockEdgeInterface = std::make_unique<AnalyzerSettingInterfaceNumberList>();
     mClockEdgeInterface->SetTitleAndTooltip( "Clock Edge", "Which clock edge to sample data on" );
     mClockEdgeInterface->AddNumber( 0, "Rising Edge", "Sample data on rising edge of clock" );
     mClockEdgeInterface->AddNumber( 1, "Falling Edge", "Sample data on falling edge of clock" );
     mClockEdgeInterface->SetNumber( mClockEdge );
 
-    mHdlcAddrInterface.reset( new AnalyzerSettingInterfaceNumberList() );
+    mHdlcAddrInterface = std::make_unique<AnalyzerSettingInterfaceNumberList>();
     mHdlcAddrInterface->SetTitleAndTooltip( "Address Field Type", "Specify the address field type of an HDLC frame." );
     mHdlcAddrInterface->AddNumber( HDLC_BASIC_ADDRESS_FIELD, "Basic", "Basic Address Field (8 bits)" );
     mHdlcAddrInterface->AddNumber( HDLC_EXTENDED_ADDRESS_FIELD, "Extended", "Extended Address Field (8 or more bits)" );
     mHdlcAddrInterface->SetNumber( mHdlcAddr );
 
-    mHdlcControlInterface.reset( new AnalyzerSettingInterfaceNumberList() );
+    mHdlcControlInterface = std::make_unique<AnalyzerSettingInterfaceNumberList>();
     mHdlcControlInterface->SetTitleAndTooltip( "Control Field Format", "Specify the Control Field type of a HDLC frame." );
     mHdlcControlInterface->AddNumber( HDLC_BASIC_CONTROL_FIELD, "Basic - Modulo 8", "Control Field of 8 bits" );
     mHdlcControlInterface->AddNumber( HDLC_EXTENDED_CONTROL_FIELD_MOD_128, "Extended - Modulo 128", "Control Field of 16 bits" );
@@ -55,7 +56,7 @@ HdlcAnalyzerSettings::HdlcAnalyzerSettings()
                                       "Control Field of 64 bits" );
     mHdlcControlInterface->SetNumber( mHdlcControl );
 
-    mHdlcFcsInterface.reset( new AnalyzerSettingInterfaceNumberList() );
+    mHdlcFcsInterface = std::make_unique<AnalyzerSettingInterfaceNumberList>();
     mHdlcFcsInterface->SetTitleAndTooltip( "FCS Type", "Specify the Frame Check Sequence of an HDLC frame" );
     mHdlcFcsInterface->AddNumber( HDLC_CRC8, "CRC-8", "8-bit Cyclic Redundancy Check" );
     mHdlcFcsInterface->AddNumber( HDLC_CRC16, "CRC-16-CCITT", "16-bit Cyclic Redundancy Check" );
@@ -94,11 +95,11 @@ bool HdlcAnalyzerSettings::SetSettingsFromInterfaces()
     mInputChannel = mInputChannelInterface->GetChannel();
     mClockChannel = mClockChannelInterface->GetChannel();
     mBitRate = mBitRateInterface->GetInteger();
-    mClockEdge = U32( mClockEdgeInterface->GetNumber() );
-    mTransmissionMode = HdlcTransmissionModeType( U32( mHdlcTransmissionInterface->GetNumber() ) );
-    mHdlcAddr = HdlcAddressType( U32( mHdlcAddrInterface->GetNumber() ) );
-    mHdlcControl = HdlcControlType( U32( mHdlcControlInterface->GetNumber() ) );
-    mHdlcFcs = HdlcFcsType( U32( mHdlcFcsInterface->GetNumber() ) );
+    mClockEdge = static_cast<U32>( mClockEdgeInterface->GetNumber() );
+    mTransmissionMode = static_cast<HdlcTransmissionModeType>( static_cast<U32>( mHdlcTransmissionInterface->GetNumber() ) );
+    mHdlcAddr = static_cast<HdlcAddressType>( static_cast<U32>( mHdlcAddrInterface->GetNumber() ) );
+    mHdlcControl = static_cast<HdlcControlType>( static_cast<U32>( mHdlcControlInterface->GetNumber() ) );
+    mHdlcFcs = static_cast<HdlcFcsType>( static_cast<U32>( mHdlcFcsInterface->GetNumber() ) );
 
     if( mTransmissionMode == HDLC_TRANSMISSION_BIT_SYNC_EXT_CLK && mClockChannel == UNDEFINED_CHANNEL )
     {
@@ -130,12 +131,20 @@ void HdlcAnalyzerSettings::LoadSettings( const char* settings )
     SimpleArchive text_archive;
     text_archive.SetString( settings );
 
+    U32 tmp;
+
     text_archive >> mInputChannel;
     text_archive >> mBitRate;
-    text_archive >> *( U32* )&mTransmissionMode;
-    text_archive >> *( U32* )&mHdlcAddr;
-    text_archive >> *( U32* )&mHdlcControl;
-    text_archive >> *( U32* )&mHdlcFcs;
+
+    text_archive >> tmp;
+    mTransmissionMode = static_cast<HdlcTransmissionModeType>( tmp );
+    text_archive >> tmp;
+    mHdlcAddr = static_cast<HdlcAddressType>( tmp );
+    text_archive >> tmp;
+    mHdlcControl = static_cast<HdlcControlType>( tmp );
+    text_archive >> tmp;
+    mHdlcFcs = static_cast<HdlcFcsType>( tmp );
+
     text_archive >> mClockChannel;
     text_archive >> mClockEdge;
 
@@ -152,10 +161,10 @@ const char* HdlcAnalyzerSettings::SaveSettings()
 
     text_archive << mInputChannel;
     text_archive << mBitRate;
-    text_archive << U32( mTransmissionMode );
-    text_archive << U32( mHdlcAddr );
-    text_archive << U32( mHdlcControl );
-    text_archive << U32( mHdlcFcs );
+    text_archive << static_cast<U32>( mTransmissionMode );
+    text_archive << static_cast<U32>( mHdlcAddr );
+    text_archive << static_cast<U32>( mHdlcControl );
+    text_archive << static_cast<U32>( mHdlcFcs );
     text_archive << mClockChannel;
     text_archive << mClockEdge;
 

@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 HdlcSimulationDataGenerator::HdlcSimulationDataGenerator()
-    : mSettings( 0 ),
+    : mSettings( nullptr ),
       mSimulationSampleRateHz( 0 ),
       mFrameNumber( 0 ),
       mAbortByte( 0 ),
@@ -38,7 +38,7 @@ void HdlcSimulationDataGenerator::Initialize( U32 simulation_sample_rate, HdlcAn
     // Initialize rng seed
     srand( 5 );
 
-    mSamplesInHalfPeriod = U64( simulation_sample_rate / double( mSettings->mBitRate ) );
+    mSamplesInHalfPeriod = static_cast<U64>( simulation_sample_rate / static_cast<double>( mSettings->mBitRate ) );
     mSamplesInAFlag = mSamplesInHalfPeriod * 7;
 
     mHdlcSimulationData.Advance( mSamplesInHalfPeriod * 8 ); // Advance 4 periods
@@ -90,9 +90,9 @@ U32 HdlcSimulationDataGenerator::GenerateSimulationData( U64 largest_sample_requ
         U32 sizeOfInformation = ( frameType == HDLC_S_FRAME ) ? 0 : ( ( rand() % 4 ) + 1 );
         U64 addressBytes = ( ( rand() % 4 ) + 1 );
 
-        vector<U8> address = GenAddressField( mSettings->mHdlcAddr, addressBytes, mAddresByteValue++ );
-        vector<U8> control = GenControlField( frameType, mSettings->mHdlcControl, mControlValue++ );
-        vector<U8> information = GenInformationField( sizeOfInformation, mInformationByteValue++ );
+        std::vector<U8> address = GenAddressField( mSettings->mHdlcAddr, addressBytes, mAddresByteValue++ );
+        std::vector<U8> control = GenControlField( frameType, mSettings->mHdlcControl, mControlValue++ );
+        std::vector<U8> information = GenInformationField( sizeOfInformation, mInformationByteValue++ );
 
         CreateHDLCFrame( address, control, information );
 
@@ -120,9 +120,9 @@ void HdlcSimulationDataGenerator::CreateFlag()
 }
 
 
-vector<U8> HdlcSimulationDataGenerator::GenAddressField( HdlcAddressType addressType, U64 addressBytes, U8 value ) const
+std::vector<U8> HdlcSimulationDataGenerator::GenAddressField( HdlcAddressType addressType, U64 addressBytes, U8 value ) const
 {
-    vector<U8> addrRet;
+    std::vector<U8> addrRet;
     if( addressType == HDLC_BASIC_ADDRESS_FIELD )
     {
         addrRet.push_back( value );
@@ -140,9 +140,9 @@ vector<U8> HdlcSimulationDataGenerator::GenAddressField( HdlcAddressType address
 }
 
 // ISO/IEC 13239:2002(E) page 26
-vector<U8> HdlcSimulationDataGenerator::GenControlField( HdlcFrameType frameType, HdlcControlType controlType, U8 value ) const
+std::vector<U8> HdlcSimulationDataGenerator::GenControlField( HdlcFrameType frameType, HdlcControlType controlType, U8 value ) const
 {
-    vector<U8> controlRet;
+    std::vector<U8> controlRet;
     U8 ctrl;
     switch( frameType )
     {
@@ -194,22 +194,22 @@ vector<U8> HdlcSimulationDataGenerator::GenControlField( HdlcFrameType frameType
     return controlRet;
 }
 
-vector<U8> HdlcSimulationDataGenerator::GenInformationField( U16 size, U8 value ) const
+std::vector<U8> HdlcSimulationDataGenerator::GenInformationField( U16 size, U8 value ) const
 {
-    vector<U8> informationRet( size, value );
+    std::vector<U8> informationRet( size, value );
     return informationRet;
 }
 
-void HdlcSimulationDataGenerator::CreateHDLCFrame( const vector<U8>& address, const vector<U8>& control, const vector<U8>& information )
+void HdlcSimulationDataGenerator::CreateHDLCFrame( const std::vector<U8>& address, const std::vector<U8>& control, const std::vector<U8>& information )
 {
-    vector<U8> allFields;
+    std::vector<U8> allFields;
 
     allFields.insert( allFields.end(), address.begin(), address.end() );
     allFields.insert( allFields.end(), control.begin(), control.end() );
     allFields.insert( allFields.end(), information.begin(), information.end() );
 
     // Calculate the crc of the address, control and data fields
-    vector<U8> fcs = GenFcs( mSettings->mHdlcFcs, allFields );
+    std::vector<U8> fcs = GenFcs( mSettings->mHdlcFcs, allFields );
     allFields.insert( allFields.end(), fcs.begin(), fcs.end() );
 
     // Transmit the frame in bit-sync or byte-async
@@ -223,9 +223,9 @@ void HdlcSimulationDataGenerator::CreateHDLCFrame( const vector<U8>& address, co
     }
 }
 
-vector<U8> HdlcSimulationDataGenerator::GenFcs( HdlcFcsType fcsType, const vector<U8>& stream ) const
+std::vector<U8> HdlcSimulationDataGenerator::GenFcs( HdlcFcsType fcsType, const std::vector<U8>& stream ) const
 {
-    vector<U8> crcRet;
+    std::vector<U8> crcRet;
     switch( fcsType )
     {
     case HDLC_CRC8:
@@ -241,7 +241,7 @@ vector<U8> HdlcSimulationDataGenerator::GenFcs( HdlcFcsType fcsType, const vecto
     return crcRet;
 }
 
-void HdlcSimulationDataGenerator::TransmitBitSync( const vector<U8>& stream )
+void HdlcSimulationDataGenerator::TransmitBitSync( const std::vector<U8>& stream )
 {
     // Opening flag
     CreateFlagBitSeq();
@@ -327,7 +327,7 @@ void HdlcSimulationDataGenerator::CreateSyncBit( BitState bitState )
     mHdlcSimulationData.Advance( mSamplesInHalfPeriod );
 }
 
-void HdlcSimulationDataGenerator::TransmitByteAsync( const vector<U8>& stream )
+void HdlcSimulationDataGenerator::TransmitByteAsync( const std::vector<U8>& stream )
 {
     // Opening flag
     CreateAsyncByte( HDLC_FLAG_VALUE );
@@ -412,9 +412,9 @@ void HdlcSimulationDataGenerator::CreateAsyncByte( U8 byte )
 ////////////////////// Static functions /////////////////////////////////////////////////////
 //
 
-vector<BitState> HdlcSimulationDataGenerator::BytesVectorToBitsVector( const vector<U8>& v, U32 numberOfBits )
+std::vector<BitState> HdlcSimulationDataGenerator::BytesVectorToBitsVector( const std::vector<U8>& v, U32 numberOfBits )
 {
-    vector<BitState> bitsRet;
+    std::vector<BitState> bitsRet;
     U32 vectorIndex = 0;
     U8 byte;
     bool getByte = true;
@@ -439,10 +439,10 @@ vector<BitState> HdlcSimulationDataGenerator::BytesVectorToBitsVector( const vec
     return bitsRet;
 }
 
-vector<U8> HdlcSimulationDataGenerator::CrcDivision( const vector<U8>& stream, const vector<U8>& genPoly, U32 crcNumber )
+std::vector<U8> HdlcSimulationDataGenerator::CrcDivision( const std::vector<U8>& stream, const std::vector<U8>& genPoly, U32 crcNumber )
 {
-    vector<BitState> dataBits = BytesVectorToBitsVector( stream, stream.size() * 8 );
-    vector<BitState> polyBits = BytesVectorToBitsVector( genPoly, crcNumber + 1 );
+    std::vector<BitState> dataBits = BytesVectorToBitsVector( stream, stream.size() * 8 );
+    std::vector<BitState> polyBits = BytesVectorToBitsVector( genPoly, crcNumber + 1 );
 
     U32 dataIndex = 0;
     U32 dataLimit = dataBits.size() - ( polyBits.size() - 1 );
@@ -474,7 +474,7 @@ vector<U8> HdlcSimulationDataGenerator::CrcDivision( const vector<U8>& stream, c
     }
 
     // put the crc result in the vector of bytes
-    vector<U8> crcRet;
+    std::vector<U8> crcRet;
     U8 offset = crcNumber;
     for( U32 s = 0; s < crcNumber / 8; ++s )
     {
@@ -492,24 +492,24 @@ vector<U8> HdlcSimulationDataGenerator::CrcDivision( const vector<U8>& stream, c
     return crcRet;
 }
 
-vector<U8> HdlcSimulationDataGenerator::Crc8( const vector<U8>& stream )
+std::vector<U8> HdlcSimulationDataGenerator::Crc8( const std::vector<U8>& stream )
 {
-    vector<U8> result = stream;
+    std::vector<U8> result = stream;
     result.push_back( 0x00 );
 
     // ISO/IEC 13239:2002(E) page 14
     // CRC8 Divisor (9 bits) - x**8 + x**2 + x + 1
-    vector<U8> divisor;
+    std::vector<U8> divisor;
     divisor.push_back( 0x83 );
     divisor.push_back( 0x80 );
 
-    vector<U8> crc8Ret = CrcDivision( result, divisor, 8 );
+    std::vector<U8> crc8Ret = CrcDivision( result, divisor, 8 );
     return crc8Ret;
 }
 
-vector<U8> HdlcSimulationDataGenerator::Crc16( const vector<U8>& stream )
+std::vector<U8> HdlcSimulationDataGenerator::Crc16( const std::vector<U8>& stream )
 {
-    vector<U8> result = stream;
+    std::vector<U8> result = stream;
 
     // Append 16 0-bits
     result.push_back( 0x00 );
@@ -517,19 +517,19 @@ vector<U8> HdlcSimulationDataGenerator::Crc16( const vector<U8>& stream )
 
     // ISO/IEC 13239:2002(E) page 14
     // CRC16 Divisor (17 bits) - x**16 + x**12 + x**5 + 1 (0x1021)
-    vector<U8> divisor;
+    std::vector<U8> divisor;
     divisor.push_back( 0x88 );
     divisor.push_back( 0x10 );
     divisor.push_back( 0x80 );
 
-    vector<U8> crc16Ret = CrcDivision( result, divisor, 16 );
+    std::vector<U8> crc16Ret = CrcDivision( result, divisor, 16 );
 
     return crc16Ret;
 }
 
-vector<U8> HdlcSimulationDataGenerator::Crc32( const vector<U8>& stream )
+std::vector<U8> HdlcSimulationDataGenerator::Crc32( const std::vector<U8>& stream )
 {
-    vector<U8> result = stream;
+    std::vector<U8> result = stream;
     // Append 32 0-bits
     result.push_back( 0x00 );
     result.push_back( 0x00 );
@@ -538,13 +538,13 @@ vector<U8> HdlcSimulationDataGenerator::Crc32( const vector<U8>& stream )
 
     // ISO/IEC 13239:2002(E) page 13
     // CRC32 Divisor (33 bits)
-    vector<U8> divisor;
+    std::vector<U8> divisor;
     divisor.push_back( 0x82 );
     divisor.push_back( 0x60 );
     divisor.push_back( 0x8E );
     divisor.push_back( 0xDB );
     divisor.push_back( 0x80 );
 
-    vector<U8> crc32Ret = CrcDivision( result, divisor, 32 );
+    std::vector<U8> crc32Ret = CrcDivision( result, divisor, 32 );
     return crc32Ret;
 }

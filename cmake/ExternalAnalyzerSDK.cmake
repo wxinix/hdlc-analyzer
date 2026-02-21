@@ -1,7 +1,7 @@
 include(FetchContent)
 
-# Use the C++11 standard
-set(CMAKE_CXX_STANDARD 11)
+# Use the C++23 standard
+set(CMAKE_CXX_STANDARD 23)
 
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 

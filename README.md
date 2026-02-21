@@ -1,126 +1,93 @@
-# Saleae High-Level Data Link Control (HDLC) Analyzer
+# NEMA/ATC SDLC Analyzer
 
-Saleae High-Level Data Link Control (HDLC) Analyzer
+A Saleae Logic 2 protocol analyzer for decoding HDLC/SDLC frames, with support for external clock synchronization used in NEMA TS2 and ATC traffic signal communications.
+
+Forked from [saleae/hdlc-analyzer](https://github.com/saleae/hdlc-analyzer).
 
 ## Fork Maintainer
 
 This fork is maintained by [Wuping Xin](https://github.com/wxinix).
 
-## Getting Started
+## What's New in This Fork
 
-The following documentation describes how to build this analyzer locally. For more detailed information about the Analyzer SDK, debugging, CI builds, and more, check out the readme in the Sample Analyzer repository.
+### External Clock Mode
 
-https://github.com/saleae/SampleAnalyzer
+Added a new **"Bit Synchronous (External Clock)"** transmission mode. The original analyzer only supports an internal sampling clock derived from a user-specified baud rate, which causes sampling drift on true synchronous protocols like SDLC. The new mode samples the data line on edges of a user-specified external clock channel.
 
-### MacOS
+**New analyzer settings:**
+- **Clock** - Select the external clock channel
+- **Clock Edge** - Rising or falling edge sampling
 
-Dependencies:
+### Modernized to C++23
 
-- XCode with command line tools
+The codebase has been updated from C++11 to C++23, including:
+- `std::unique_ptr` replacing `std::auto_ptr`
+- `override` on all virtual function overrides
+- `nullptr`, `static_cast`, `std::make_unique`, designated initializers
+- Removed `using namespace std`; all standard library types explicitly qualified
+
+## Installation
+
+1. Build the analyzer (see below)
+2. Open Saleae Logic 2
+3. Go to **Preferences** (Ctrl+,) > **Custom Low Level Analyzers**
+4. Add the directory containing the built DLL (e.g. `build/Analyzers/Release`)
+5. Restart Logic 2
+6. The analyzer appears as **"NEMA/ATC SDLC"**
+
+## Usage for NEMA TS2 / ATC SDLC
+
+### Wiring
+
+| Signal | Logic Channel |
+|--------|---------------|
+| RxData+ (Pin 5) | Digital Channel 0 |
+| RxClock+ (Pin 7) | Digital Channel 1 |
+| GND (Pin 2,4,6,8) | GND |
+
+### Analyzer Configuration
+
+- **Transmission Mode** - Bit Synchronous (External Clock)
+- **HDLC** - Channel 0 (data)
+- **Clock** - Channel 1 (clock)
+- **Clock Edge** - Rising Edge (try Falling if decoding looks incorrect)
+
+## Building
+
+### Prerequisites
+
+- A C++23-compatible compiler (Visual Studio 2022, GCC 13+, or Clang 16+)
 - CMake 3.13+
 - git
 
-Install command line tools after XCode is installed:
+### MacOS
 
 ```
-xcode-select --install
-```
-
-Then open XCode, open Preferences from the main menu, go to locations, and select the only option under 'Command line tools'.
-
-Install CMake on MacOS:
-
-1. Download the binary distribution for MacOS, `cmake-*-Darwin-x86_64.dmg`
-2. Install the usual way by dragging into applications.
-3. Open a terminal and run the following:
-
-```
-/Applications/CMake.app/Contents/bin/cmake-gui --install
-```
-
-_Note: Errors may occur if older versions of CMake are installed._
-
-Build the analyzer:
-
-```
-mkdir build
-cd build
+mkdir build && cd build
 cmake ..
 cmake --build .
 ```
 
-### Ubuntu 18.04+
-
-Dependencies:
-
-- CMake 3.13+
-- gcc 4.8+
-- git
-
-Misc dependencies:
+### Linux
 
 ```
-sudo apt-get install build-essential
-```
-
-Build the analyzer:
-
-```
-mkdir build
-cd build
+mkdir build && cd build
 cmake ..
 cmake --build .
 ```
 
 ### Windows
 
-Dependencies:
-
-- Visual Studio 2019
-- CMake 3.13+
-- git
-
-**Visual Studio 2019**
-
-_Note - newer and older versions of Visual Studio are likely to work._
-
-Setup options:
-
-- Workloads > Desktop & Mobile > "Desktop development with C++"
-
-Note - if CMake has any problems with the MSVC compiler, it's likely a component is missing.
-
-**CMake**
-
-Download and install the latest CMake release here.
-https://cmake.org/download/
-
-**git**
-
-Download and install git here.
-https://git-scm.com/
-
-Build the analyzer:
-
 ```
-mkdir build
-cd build
+mkdir build && cd build
 cmake .. -A x64
+cmake --build . --config Release
 ```
 
-Then, open the newly created solution file located here: `build\hdlc_analyzer.sln`
+The built analyzer DLL will be at `build/Analyzers/Release/hdlc_analyzer.dll`.
 
-Optionally, build from the command line without opening Visual Studio:
+## References
 
-```
-cmake --build .
-```
-
-The built analyzer DLLs will be located here:
-
-`build\Analyzers\Debug`
-
-`build\Analyzers\Release`
-
-For debug and release builds, respectively.
-
+- [Saleae Analyzer SDK](https://github.com/saleae/SampleAnalyzer)
+- ISO/IEC 13239:2002 - HDLC specification
+- NEMA TS2 specification - SDLC timing requirements

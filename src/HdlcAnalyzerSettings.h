@@ -3,6 +3,7 @@
 
 #include <AnalyzerSettings.h>
 #include <AnalyzerTypes.h>
+#include <memory>
 
 /////////////////////////////////////
 
@@ -80,12 +81,12 @@ class HdlcAnalyzerSettings : public AnalyzerSettings
 {
   public:
     HdlcAnalyzerSettings();
-    virtual ~HdlcAnalyzerSettings();
+    ~HdlcAnalyzerSettings() override;
 
-    virtual bool SetSettingsFromInterfaces();
+    bool SetSettingsFromInterfaces() override;
     void UpdateInterfacesFromSettings();
-    virtual void LoadSettings( const char* settings );
-    virtual const char* SaveSettings();
+    void LoadSettings( const char* settings ) override;
+    const char* SaveSettings() override;
 
     static U8 Bit5Inv( U8 value );
 
@@ -100,14 +101,14 @@ class HdlcAnalyzerSettings : public AnalyzerSettings
     HdlcFcsType mHdlcFcs;
 
   protected:
-    std::auto_ptr<AnalyzerSettingInterfaceChannel> mInputChannelInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceChannel> mClockChannelInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceInteger> mBitRateInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceNumberList> mClockEdgeInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceNumberList> mHdlcAddrInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceNumberList> mHdlcTransmissionInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceNumberList> mHdlcControlInterface;
-    std::auto_ptr<AnalyzerSettingInterfaceNumberList> mHdlcFcsInterface;
+    std::unique_ptr<AnalyzerSettingInterfaceChannel> mInputChannelInterface;
+    std::unique_ptr<AnalyzerSettingInterfaceChannel> mClockChannelInterface;
+    std::unique_ptr<AnalyzerSettingInterfaceInteger> mBitRateInterface;
+    std::unique_ptr<AnalyzerSettingInterfaceNumberList> mClockEdgeInterface;
+    std::unique_ptr<AnalyzerSettingInterfaceNumberList> mHdlcAddrInterface;
+    std::unique_ptr<AnalyzerSettingInterfaceNumberList> mHdlcTransmissionInterface;
+    std::unique_ptr<AnalyzerSettingInterfaceNumberList> mHdlcControlInterface;
+    std::unique_ptr<AnalyzerSettingInterfaceNumberList> mHdlcFcsInterface;
 };
 
 #endif // HDLC_ANALYZER_SETTINGS

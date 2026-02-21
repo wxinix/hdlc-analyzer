@@ -24,7 +24,7 @@ void HdlcAnalyzerResults::GenBubbleText( U64 frame_index, DisplayBase display_ba
     if( !tabular )
         ClearResultStrings();
 
-    Frame frame = GetFrame( frame_index );
+    auto frame = GetFrame( frame_index );
 
     switch( frame.mType )
     {
@@ -53,7 +53,7 @@ void HdlcAnalyzerResults::GenBubbleText( U64 frame_index, DisplayBase display_ba
 
 void HdlcAnalyzerResults::GenFlagFieldString( const Frame& frame, bool tabular )
 {
-    char* flagTypeStr = 0;
+    const char* flagTypeStr = nullptr;
     switch( frame.mData1 )
     {
     case HDLC_FLAG_START:
@@ -79,9 +79,9 @@ void HdlcAnalyzerResults::GenFlagFieldString( const Frame& frame, bool tabular )
         AddTabularText( flagTypeStr, " Flag Delimiter" );
 }
 
-string HdlcAnalyzerResults::GenEscapedString( const Frame& frame )
+std::string HdlcAnalyzerResults::GenEscapedString( const Frame& frame )
 {
-    stringstream ss;
+    std::stringstream ss;
     if( frame.mFlags & HDLC_ESCAPED_BYTE )
     {
         char dataStr[ 32 ];
@@ -102,7 +102,7 @@ void HdlcAnalyzerResults::GenAddressFieldString( const Frame& frame, DisplayBase
     char byteNumber[ 64 ];
     AnalyzerHelpers::GetNumberString( frame.mData2, Decimal, 8, byteNumber, 64 );
 
-    string escStr = GenEscapedString( frame );
+    auto escStr = GenEscapedString( frame );
 
     if( !tabular )
     {
@@ -123,7 +123,7 @@ void HdlcAnalyzerResults::GenInformationFieldString( const Frame& frame, const D
     char numberStr[ 64 ];
     AnalyzerHelpers::GetNumberString( frame.mData2, Decimal, 32, numberStr, 64 );
 
-    string escStr = GenEscapedString( frame );
+    auto escStr = GenEscapedString( frame );
 
     if( !tabular )
     {
@@ -144,9 +144,9 @@ void HdlcAnalyzerResults::GenControlFieldString( const Frame& frame, DisplayBase
     char ctlNumStr[ 64 ];
     AnalyzerHelpers::GetNumberString( frame.mData2, Decimal, 8, ctlNumStr, 64 );
 
-    string escStr = GenEscapedString( frame );
+    auto escStr = GenEscapedString( frame );
 
-    char* frameTypeStr = 0;
+    const char* frameTypeStr = nullptr;
     if( frame.mData2 != 0 )
     {
         frameTypeStr = "";
@@ -167,7 +167,7 @@ void HdlcAnalyzerResults::GenControlFieldString( const Frame& frame, DisplayBase
         }
     }
 
-    stringstream ss;
+    std::stringstream ss;
     ss << "CTL" << ctlNumStr << " [";
 
     if( !tabular )
@@ -192,7 +192,7 @@ void HdlcAnalyzerResults::GenControlFieldString( const Frame& frame, DisplayBase
 void HdlcAnalyzerResults::GenFcsFieldString( const Frame& frame, DisplayBase display_base, bool tabular )
 {
     U32 fcsBits = 0;
-    char* crcTypeStr = 0;
+    const char* crcTypeStr = nullptr;
     switch( mSettings->mHdlcFcs )
     {
     case HDLC_CRC8:
@@ -214,7 +214,7 @@ void HdlcAnalyzerResults::GenFcsFieldString( const Frame& frame, DisplayBase dis
     char calcFcsStr[ 128 ];
     AnalyzerHelpers::GetNumberString( frame.mData2, display_base, fcsBits, calcFcsStr, 128 );
 
-    stringstream fieldNameStr;
+    std::stringstream fieldNameStr;
     if( frame.mFlags & DISPLAY_AS_ERROR_FLAG )
     {
         fieldNameStr << "!";
@@ -255,8 +255,9 @@ void HdlcAnalyzerResults::GenFcsFieldString( const Frame& frame, DisplayBase dis
 
 void HdlcAnalyzerResults::GenAbortFieldString( bool tabular )
 {
-    char* seq = 0;
-    if( mSettings->mTransmissionMode == HDLC_TRANSMISSION_BIT_SYNC )
+    const char* seq = nullptr;
+    if( mSettings->mTransmissionMode == HDLC_TRANSMISSION_BIT_SYNC ||
+        mSettings->mTransmissionMode == HDLC_TRANSMISSION_BIT_SYNC_EXT_CLK )
     {
         seq = "(>=7 1-bits)";
     }
@@ -277,24 +278,24 @@ void HdlcAnalyzerResults::GenAbortFieldString( bool tabular )
     }
 }
 
-string HdlcAnalyzerResults::EscapeByteStr( const Frame& frame )
+std::string HdlcAnalyzerResults::EscapeByteStr( const Frame& frame )
 {
     if( ( mSettings->mTransmissionMode == HDLC_TRANSMISSION_BYTE_ASYNC ) && ( frame.mFlags & HDLC_ESCAPED_BYTE ) )
     {
-        return string( "0x7D-" );
+        return std::string( "0x7D-" );
     }
     else
     {
-        return string( "" );
+        return std::string();
     }
 }
 
 void HdlcAnalyzerResults::GenerateExportFile( const char* file, DisplayBase display_base, U32 /*export_type_user_id*/ )
 {
-    ofstream fileStream( file, ios::out );
+    std::ofstream fileStream( file, std::ios::out );
 
-    U64 triggerSample = mAnalyzer->GetTriggerSample();
-    U32 sampleRate = mAnalyzer->GetSampleRate();
+    auto triggerSample = mAnalyzer->GetTriggerSample();
+    auto sampleRate = mAnalyzer->GetSampleRate();
 
     const char* sepChar = " ";
 
@@ -312,12 +313,12 @@ void HdlcAnalyzerResults::GenerateExportFile( const char* file, DisplayBase disp
         break;
     }
 
-    fileStream << "Time[s],Address,Control,Information,FCS" << endl;
+    fileStream << "Time[s],Address,Control,Information,FCS" << std::endl;
 
     char escapeStr[ 5 ];
     AnalyzerHelpers::GetNumberString( HDLC_ESCAPE_SEQ_VALUE, display_base, 8, escapeStr, 5 );
 
-    U64 numFrames = GetNumFrames();
+    auto numFrames = GetNumFrames();
     U64 frameNumber = 0;
 
     U32 numberOfControlBytes = 0;
@@ -380,7 +381,7 @@ void HdlcAnalyzerResults::GenerateExportFile( const char* file, DisplayBase disp
             firstAddressFrame = GetFrame( frameNumber );
             if( firstAddressFrame.mType != HDLC_FIELD_BASIC_ADDRESS )
             {
-                fileStream << "," << endl;
+                fileStream << "," << std::endl;
                 continue;
             }
 
@@ -390,20 +391,20 @@ void HdlcAnalyzerResults::GenerateExportFile( const char* file, DisplayBase disp
         }
         else // Check for extended address
         {
-            Frame nextAddress = firstAddressFrame;
+            auto nextAddress = firstAddressFrame;
             for( ;; )
             {
                 // Check for abort
                 if( nextAddress.mType == HDLC_ABORT_SEQ )
                 {
-                    fileStream << "," << endl;
+                    fileStream << "," << std::endl;
                     doAbortFrame = true;
                     break;
                 }
 
                 if( nextAddress.mType != HDLC_FIELD_EXTENDED_ADDRESS ) // ERROR
                 {
-                    fileStream << "," << endl;
+                    fileStream << "," << std::endl;
                     break;
                 }
 
@@ -411,7 +412,7 @@ void HdlcAnalyzerResults::GenerateExportFile( const char* file, DisplayBase disp
 
                 char addressStr[ 64 ];
                 AnalyzerHelpers::GetNumberString( nextAddress.mData1, display_base, 8, addressStr, 64 );
-                string sep = ( endOfAddress && nextAddress.mData2 == 0 ) ? string() : string( sepChar );
+                auto sep = ( endOfAddress && nextAddress.mData2 == 0 ) ? std::string() : std::string( sepChar );
                 fileStream << sep << EscapeByteStr( nextAddress ) << addressStr;
 
                 if( endOfAddress ) // no more bytes of address?
@@ -448,19 +449,19 @@ void HdlcAnalyzerResults::GenerateExportFile( const char* file, DisplayBase disp
                 return;
             }
 
-            Frame controlFrame = GetFrame( frameNumber );
+            auto controlFrame = GetFrame( frameNumber );
 
             // Check for abort
             if( controlFrame.mType == HDLC_ABORT_SEQ )
             {
                 doAbortFrame = true;
-                fileStream << "," << endl;
+                fileStream << "," << std::endl;
                 break;
             }
 
             if( !( controlFrame.mType == HDLC_FIELD_BASIC_CONTROL || controlFrame.mType == HDLC_FIELD_EXTENDED_CONTROL ) ) // ERROR
             {
-                fileStream << "," << endl;
+                fileStream << "," << std::endl;
                 continue;
             }
 
@@ -471,7 +472,7 @@ void HdlcAnalyzerResults::GenerateExportFile( const char* file, DisplayBase disp
 
             char controlStr[ 64 ];
             AnalyzerHelpers::GetNumberString( controlFrame.mData1, display_base, 8, controlStr, 64 );
-            string sep = ( isUFrame || mSettings->mHdlcControl == HDLC_BASIC_CONTROL_FIELD ) ? string() : string( sepChar );
+            auto sep = ( isUFrame || mSettings->mHdlcControl == HDLC_BASIC_CONTROL_FIELD ) ? std::string() : std::string( sepChar );
             fileStream << sep.c_str() << EscapeByteStr( controlFrame ) << controlStr;
 
             if( i == 0 && isUFrame )
@@ -497,13 +498,13 @@ void HdlcAnalyzerResults::GenerateExportFile( const char* file, DisplayBase disp
         // 5) Information Fields
         for( ;; )
         {
-            Frame infoFrame = GetFrame( frameNumber );
+            auto infoFrame = GetFrame( frameNumber );
 
             // Check for abort
             if( infoFrame.mType == HDLC_ABORT_SEQ )
             {
                 doAbortFrame = true;
-                fileStream << "," << endl;
+                fileStream << "," << std::endl;
                 break;
             }
 
@@ -540,16 +541,16 @@ void HdlcAnalyzerResults::GenerateExportFile( const char* file, DisplayBase disp
         }
 
         // 6) FCS Field
-        Frame fcsFrame = GetFrame( frameNumber );
+        auto fcsFrame = GetFrame( frameNumber );
         if( fcsFrame.mType != HDLC_FIELD_FCS )
         {
-            fileStream << "," << endl;
+            fileStream << "," << std::endl;
         }
         else // HDLC_FIELD_FCS Frame
         {
             char fcsStr[ 128 ];
             AnalyzerHelpers::GetNumberString( fcsFrame.mData1, display_base, fcsBits, fcsStr, 128 );
-            fileStream << fcsStr << endl;
+            fileStream << fcsStr << std::endl;
         }
 
         frameNumber++;

@@ -4,6 +4,8 @@
 #include <Analyzer.h>
 #include "HdlcAnalyzerResults.h"
 #include "HdlcSimulationDataGenerator.h"
+#include <memory>
+#include <vector>
 
 struct HdlcByte
 {
@@ -18,16 +20,16 @@ class HdlcAnalyzer : public Analyzer2
 {
   public:
     HdlcAnalyzer();
-    virtual ~HdlcAnalyzer();
-    virtual void WorkerThread();
+    ~HdlcAnalyzer() override;
+    void WorkerThread() override;
 
-    virtual U32 GenerateSimulationData( U64 newest_sample_requested, U32 sample_rate, SimulationChannelDescriptor** simulation_channels );
-    virtual U32 GetMinimumSampleRateHz();
+    U32 GenerateSimulationData( U64 newest_sample_requested, U32 sample_rate, SimulationChannelDescriptor** simulation_channels ) override;
+    U32 GetMinimumSampleRateHz() override;
 
-    virtual const char* GetAnalyzerName() const;
-    virtual bool NeedsRerun();
+    const char* GetAnalyzerName() const override;
+    bool NeedsRerun() override;
 
-    virtual void SetupResults();
+    void SetupResults() override;
 
     static HdlcFrameType GetFrameType( U8 value );
 
@@ -40,10 +42,10 @@ class HdlcAnalyzer : public Analyzer2
     void ProcessAddressField( HdlcByte byteAfterFlag );
     void ProcessControlField();
     void ProcessInfoAndFcsField();
-    vector<HdlcByte> ReadProcessAndFcsField();
-    void InfoAndFcsField( const vector<HdlcByte>& informationAndFcs );
-    void ProcessInformationField( const vector<HdlcByte>& information );
-    void ProcessFcsField( const vector<HdlcByte>& fcs );
+    std::vector<HdlcByte> ReadProcessAndFcsField();
+    void InfoAndFcsField( const std::vector<HdlcByte>& informationAndFcs );
+    void ProcessInformationField( const std::vector<HdlcByte>& information );
+    void ProcessFcsField( const std::vector<HdlcByte>& fcs );
     HdlcByte ReadByte();
 
     // Bit Sync Transmission functions
@@ -64,22 +66,22 @@ class HdlcAnalyzer : public Analyzer2
 
     // Byte Async Transmission functions
     HdlcByte ByteAsyncProcessFlags();
-    void GenerateFlagsFrames( vector<HdlcByte> readBytes );
+    void GenerateFlagsFrames( std::vector<HdlcByte> readBytes );
     HdlcByte ByteAsyncReadByte();
     HdlcByte ByteAsyncReadByte_();
 
     // Helper functions
     Frame CreateFrame( U8 mType, U64 mStartingSampleInclusive, U64 mEndingSampleInclusive, U64 mData1 = 0, U64 mData2 = 0,
                        U8 mFlags = 0 ) const;
-    vector<U8> HdlcBytesToVectorBytes( const vector<HdlcByte>& asyncBytes ) const;
-    U64 VectorToValue( const vector<U8>& v ) const;
+    std::vector<U8> HdlcBytesToVectorBytes( const std::vector<HdlcByte>& asyncBytes ) const;
+    U64 VectorToValue( const std::vector<U8>& v ) const;
 
     void AddFrameToResults( const Frame& frame );
     void CommitFrames();
 
   protected:
-    std::auto_ptr<HdlcAnalyzerSettings> mSettings;
-    std::auto_ptr<HdlcAnalyzerResults> mResults;
+    std::unique_ptr<HdlcAnalyzerSettings> mSettings;
+    std::unique_ptr<HdlcAnalyzerResults> mResults;
     AnalyzerChannelData* mHdlc;
     AnalyzerChannelData* mClock;
 
@@ -88,7 +90,7 @@ class HdlcAnalyzer : public Analyzer2
     U64 mSamplesInAFlag;
     U32 mSamplesIn8Bits;
 
-    vector<U8> mCurrentFrameBytes;
+    std::vector<U8> mCurrentFrameBytes;
 
     BitState mPreviousBitState;
     U32 mConsecutiveOnes;
@@ -100,7 +102,7 @@ class HdlcAnalyzer : public Analyzer2
     Frame mEndFlagFrame;
     Frame mAbtFrame;
 
-    vector<Frame> mResultFrames;
+    std::vector<Frame> mResultFrames;
 
     HdlcSimulationDataGenerator mSimulationDataGenerator;
     bool mSimulationInitilized;
