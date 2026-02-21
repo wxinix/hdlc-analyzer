@@ -27,6 +27,7 @@ enum HdlcFieldType
 enum HdlcTransmissionModeType
 {
     HDLC_TRANSMISSION_BIT_SYNC = 0,
+    HDLC_TRANSMISSION_BIT_SYNC_EXT_CLK,
     HDLC_TRANSMISSION_BYTE_ASYNC
 };
 // Types of HDLC frames (Information, Supervisory and Unnumbered)
@@ -89,7 +90,9 @@ class HdlcAnalyzerSettings : public AnalyzerSettings
     static U8 Bit5Inv( U8 value );
 
     Channel mInputChannel;
+    Channel mClockChannel;
     U32 mBitRate;
+    U32 mClockEdge;
 
     HdlcTransmissionModeType mTransmissionMode;
     HdlcAddressType mHdlcAddr;
@@ -98,7 +101,9 @@ class HdlcAnalyzerSettings : public AnalyzerSettings
 
   protected:
     std::auto_ptr<AnalyzerSettingInterfaceChannel> mInputChannelInterface;
+    std::auto_ptr<AnalyzerSettingInterfaceChannel> mClockChannelInterface;
     std::auto_ptr<AnalyzerSettingInterfaceInteger> mBitRateInterface;
+    std::auto_ptr<AnalyzerSettingInterfaceNumberList> mClockEdgeInterface;
     std::auto_ptr<AnalyzerSettingInterfaceNumberList> mHdlcAddrInterface;
     std::auto_ptr<AnalyzerSettingInterfaceNumberList> mHdlcTransmissionInterface;
     std::auto_ptr<AnalyzerSettingInterfaceNumberList> mHdlcControlInterface;

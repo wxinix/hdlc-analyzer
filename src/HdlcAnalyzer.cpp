@@ -11,6 +11,7 @@ HdlcAnalyzer::HdlcAnalyzer()
       mSimulationInitilized( false ),
       mResults( 0 ),
       mHdlc( 0 ),
+      mClock( 0 ),
       mSampleRateHz( 0 ),
       mSamplesInHalfPeriod( 0 ),
       mSamplesInAFlag( 0 ),
@@ -35,6 +36,15 @@ HdlcAnalyzer::~HdlcAnalyzer()
 void HdlcAnalyzer::SetupAnalyzer()
 {
     mHdlc = GetAnalyzerChannelData( mSettings->mInputChannel );
+
+    if( mSettings->mTransmissionMode == HDLC_TRANSMISSION_BIT_SYNC_EXT_CLK )
+    {
+        mClock = GetAnalyzerChannelData( mSettings->mClockChannel );
+    }
+    else
+    {
+        mClock = NULL;
+    }
 
     double halfPeriod = ( 1.0 / double( mSettings->mBitRate ) ) * 1000000.0;
     mSampleRateHz = GetSampleRate();
@@ -70,6 +80,13 @@ void HdlcAnalyzer::WorkerThread()
     {
         // Synchronize
         mHdlc->AdvanceToNextEdge();
+    }
+    else if( mSettings->mTransmissionMode == HDLC_TRANSMISSION_BIT_SYNC_EXT_CLK )
+    {
+        // Synchronize to first clock edge
+        AdvanceClockToActiveEdge();
+        mHdlc->AdvanceToAbsPosition( mClock->GetSampleNumber() );
+        mPreviousBitState = mHdlc->GetBitState();
     }
 
     // Main loop
@@ -108,6 +125,13 @@ void HdlcAnalyzer::ProcessHDLCFrame()
             // After abortion, synchronize again
             mHdlc->AdvanceToNextEdge();
         }
+        else if( mSettings->mTransmissionMode == HDLC_TRANSMISSION_BIT_SYNC_EXT_CLK )
+        {
+            // After abortion, synchronize to next clock edge
+            AdvanceClockToActiveEdge();
+            mHdlc->AdvanceToAbsPosition( mClock->GetSampleNumber() );
+            mPreviousBitState = mHdlc->GetBitState();
+        }
     }
     else
     {
@@ -126,6 +150,12 @@ HdlcByte HdlcAnalyzer::ProcessFlags()
     if( mSettings->mTransmissionMode == HDLC_TRANSMISSION_BIT_SYNC )
     {
         BitSyncProcessFlags();
+        mReadingFrame = true;
+        addressByte = ReadByte();
+    }
+    else if( mSettings->mTransmissionMode == HDLC_TRANSMISSION_BIT_SYNC_EXT_CLK )
+    {
+        BitSyncExtClkProcessFlags();
         mReadingFrame = true;
         addressByte = ReadByte();
     }
@@ -291,6 +321,296 @@ bool HdlcAnalyzer::FlagComing()
 bool HdlcAnalyzer::AbortComing()
 {
     return !mHdlc->WouldAdvancingCauseTransition( mSamplesInAFlag + mSamplesInHalfPeriod * 0.5 );
+}
+
+//
+/////////////// SYNC BIT EXTERNAL CLOCK TRANSMISSION /////////////////////////////////
+//
+
+void HdlcAnalyzer::AdvanceClockToActiveEdge()
+{
+    // Rising edge: we want to catch LOW->HIGH transition, so start state should be LOW
+    // Falling edge: we want to catch HIGH->LOW transition, so start state should be HIGH
+    BitState activeEdgeStartState = ( mSettings->mClockEdge == 0 ) ? BIT_LOW : BIT_HIGH;
+
+    if( mClock->GetBitState() == activeEdgeStartState )
+    {
+        mClock->AdvanceToNextEdge(); // Now at active edge
+    }
+    else
+    {
+        mClock->AdvanceToNextEdge(); // Now at inactive edge
+        mClock->AdvanceToNextEdge(); // Now at active edge
+    }
+}
+
+BitState HdlcAnalyzer::BitSyncExtClkReadBit()
+{
+    // Advance clock to next active edge
+    AdvanceClockToActiveEdge();
+    U64 currentSample = mClock->GetSampleNumber();
+
+    // Advance data line to clock position and sample
+    mHdlc->AdvanceToAbsPosition( currentSample );
+    BitState currentBitState = mHdlc->GetBitState();
+
+    BitState ret;
+
+    // NRZI decoding: compare with previous bit state
+    if( currentBitState == mPreviousBitState )
+    {
+        // No transition = NRZI 1
+        mConsecutiveOnes++;
+
+        if( mReadingFrame && mConsecutiveOnes == 5 )
+        {
+            // After 5 consecutive ones, next bit should be a stuffed zero
+            // Look ahead to next clock edge
+            AdvanceClockToActiveEdge();
+            U64 nextSample = mClock->GetSampleNumber();
+            mHdlc->AdvanceToAbsPosition( nextSample );
+            BitState nextBitState = mHdlc->GetBitState();
+
+            if( nextBitState != currentBitState )
+            {
+                // Transition detected = stuffed 0 bit, consume it
+                mResults->AddMarker( nextSample, AnalyzerResults::Dot, mSettings->mInputChannel );
+                mPreviousBitState = nextBitState;
+                mConsecutiveOnes = 0;
+            }
+            else
+            {
+                // No transition = 6th consecutive 1, flag or abort
+                // Don't update mPreviousBitState here - let abort/flag detection handle it
+                mConsecutiveOnes++;
+                mPreviousBitState = currentBitState;
+            }
+        }
+        else
+        {
+            mPreviousBitState = currentBitState;
+        }
+
+        ret = BIT_HIGH;
+    }
+    else
+    {
+        // Transition = NRZI 0
+        mConsecutiveOnes = 0;
+        mPreviousBitState = currentBitState;
+        ret = BIT_LOW;
+    }
+
+    return ret;
+}
+
+bool HdlcAnalyzer::ExtClkFlagComing()
+{
+    // A flag is 01111110 in NRZI: 6 consecutive no-transitions (ones) bounded by transitions (zeros)
+    // We are positioned after the leading zero (transition).
+    // Look ahead: 6 bits with no transition, then 1 bit with transition.
+
+    // Save current positions
+    U64 savedClockSample = mClock->GetSampleNumber();
+    U64 savedDataSample = mHdlc->GetSampleNumber();
+    BitState savedPrevState = mPreviousBitState;
+
+    BitState prevState = mPreviousBitState;
+    U32 onesCount = 0;
+    bool isFlag = false;
+
+    for( U32 i = 0; i < 7; i++ )
+    {
+        AdvanceClockToActiveEdge();
+        mHdlc->AdvanceToAbsPosition( mClock->GetSampleNumber() );
+        BitState currentState = mHdlc->GetBitState();
+
+        if( currentState == prevState )
+        {
+            // No transition = 1
+            onesCount++;
+        }
+        else
+        {
+            // Transition = 0
+            if( onesCount == 6 && i == 6 )
+            {
+                isFlag = true;
+            }
+            break;
+        }
+        prevState = currentState;
+    }
+
+    if( onesCount == 6 )
+    {
+        // Check if we got the closing zero (7th bit was a transition)
+        // If we broke out of the loop with onesCount==6, isFlag should be set
+        // If we exhausted the loop with 7 ones, it's not a flag (it's an abort)
+    }
+
+    // Restore positions - AnalyzerChannelData doesn't support backward movement
+    // so we use AdvanceToAbsPosition which works as long as target >= current
+    // Since we went forward, we can't truly restore. This is a limitation.
+    // Instead, we'll use a different approach: count transitions in the data channel
+    // using the time-based approach similar to internal clock FlagComing/AbortComing.
+
+    // Actually, since we can't go back, we need to not use look-ahead.
+    // Instead, we'll detect flags inline while reading bytes, similar to how
+    // BitSyncReadByte detects them via FlagComing()/AbortComing() using
+    // WouldAdvancingCauseTransition - but that doesn't work with external clock.
+
+    // Let's use a different strategy: after reading a byte, check if it was 0x7E.
+    // This is simpler and works because flags are byte-aligned.
+
+    // For now, return false - flag detection is done in BitSyncExtClkReadByte
+    ( void )isFlag;
+    ( void )savedClockSample;
+    ( void )savedDataSample;
+    ( void )savedPrevState;
+    return false;
+}
+
+bool HdlcAnalyzer::ExtClkAbortComing()
+{
+    // Can't do look-ahead with external clock (no backtracking).
+    // Abort detection is handled inline in BitSyncExtClkReadBit via mConsecutiveOnes.
+    return false;
+}
+
+void HdlcAnalyzer::BitSyncExtClkProcessFlags()
+{
+    bool flagEncountered = false;
+    vector<HdlcByte> flags;
+    mConsecutiveOnes = 0;
+
+    for( ;; )
+    {
+        // Read 8 bits to form a byte
+        U64 byteValue = 0;
+        DataBuilder dbyte;
+        dbyte.Reset( &byteValue, AnalyzerEnums::LsbFirst, 8 );
+        U64 startSample = mClock->GetSampleNumber();
+
+        for( U32 i = 0; i < 8; ++i )
+        {
+            AdvanceClockToActiveEdge();
+            U64 currentSample = mClock->GetSampleNumber();
+            mHdlc->AdvanceToAbsPosition( currentSample );
+            BitState currentBitState = mHdlc->GetBitState();
+
+            // NRZI decoding
+            if( currentBitState == mPreviousBitState )
+            {
+                // No transition = 1
+                mConsecutiveOnes++;
+                dbyte.AddBit( BIT_HIGH );
+            }
+            else
+            {
+                // Transition = 0
+                mConsecutiveOnes = 0;
+                dbyte.AddBit( BIT_LOW );
+            }
+            mPreviousBitState = currentBitState;
+        }
+
+        U64 endSample = mClock->GetSampleNumber();
+        U8 value = U8( byteValue );
+
+        if( mConsecutiveOnes >= 7 )
+        {
+            // Abort detected
+            for( U32 i = 0; i < flags.size(); ++i )
+            {
+                Frame frame = CreateFrame( HDLC_FIELD_FLAG, flags.at( i ).startSample, flags.at( i ).endSample, HDLC_FLAG_FILL );
+                AddFrameToResults( frame );
+            }
+
+            mAbtFrame = CreateFrame( HDLC_ABORT_SEQ, startSample, endSample );
+            mAbortFrame = true;
+            break;
+        }
+
+        if( value == HDLC_FLAG_VALUE )
+        {
+            HdlcByte bs = { startSample, endSample, value, false };
+            flags.push_back( bs );
+            flagEncountered = true;
+            mConsecutiveOnes = 0;
+        }
+        else
+        {
+            if( flagEncountered )
+            {
+                break; // Non-flag byte after flag(s) - flags are done
+            }
+            // else: non-flag before any flag, keep searching
+        }
+    }
+
+    if( !mAbortFrame )
+    {
+        for( U32 i = 0; i < flags.size(); ++i )
+        {
+            Frame frame = CreateFrame( HDLC_FIELD_FLAG, flags.at( i ).startSample, flags.at( i ).endSample, HDLC_FLAG_FILL );
+            if( i == flags.size() - 1 )
+            {
+                frame.mData1 = HDLC_FLAG_START;
+            }
+            AddFrameToResults( frame );
+        }
+    }
+}
+
+HdlcByte HdlcAnalyzer::BitSyncExtClkReadByte()
+{
+    // Check for abort (7+ consecutive ones detected during bit reading)
+    if( mReadingFrame && mConsecutiveOnes >= 7 )
+    {
+        U64 startSample = mHdlc->GetSampleNumber();
+        // Advance past a few more clock edges
+        for( int i = 0; i < 8; i++ )
+        {
+            AdvanceClockToActiveEdge();
+        }
+        U64 endSample = mClock->GetSampleNumber();
+        mHdlc->AdvanceToAbsPosition( endSample );
+
+        mAbtFrame = CreateFrame( HDLC_ABORT_SEQ, startSample, endSample );
+        mAbortFrame = true;
+
+        HdlcByte b = { 0, 0, 0, false };
+        return b;
+    }
+
+    U64 byteValue = 0;
+    DataBuilder dbyte;
+    dbyte.Reset( &byteValue, AnalyzerEnums::LsbFirst, 8 );
+    U64 startSample = mClock->GetSampleNumber();
+
+    for( U32 i = 0; i < 8; ++i )
+    {
+        BitState bit = BitSyncExtClkReadBit();
+        if( mAbortFrame )
+        {
+            HdlcByte b = { 0, 0, 0, false };
+            return b;
+        }
+        dbyte.AddBit( bit );
+    }
+
+    U64 endSample = mClock->GetSampleNumber();
+    U8 value = U8( byteValue );
+
+    if( mReadingFrame && value == HDLC_FLAG_VALUE && mConsecutiveOnes == 0 )
+    {
+        mFoundEndFlag = true;
+    }
+
+    HdlcByte bs = { startSample, endSample, value, false };
+    mCurrentFrameBytes.push_back( bs.value );
+    return bs;
 }
 
 HdlcByte HdlcAnalyzer::BitSyncReadByte()
@@ -678,7 +998,12 @@ void HdlcAnalyzer::ProcessFcsField( const vector<HdlcByte>& fcs )
 
 HdlcByte HdlcAnalyzer::ReadByte()
 {
-    return ( mSettings->mTransmissionMode == HDLC_TRANSMISSION_BYTE_ASYNC ) ? ByteAsyncReadByte() : BitSyncReadByte();
+    if( mSettings->mTransmissionMode == HDLC_TRANSMISSION_BYTE_ASYNC )
+        return ByteAsyncReadByte();
+    else if( mSettings->mTransmissionMode == HDLC_TRANSMISSION_BIT_SYNC_EXT_CLK )
+        return BitSyncExtClkReadByte();
+    else
+        return BitSyncReadByte();
 }
 
 HdlcByte HdlcAnalyzer::ByteAsyncReadByte()

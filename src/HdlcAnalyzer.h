@@ -54,6 +54,14 @@ class HdlcAnalyzer : public Analyzer2
     bool FlagComing();
     bool AbortComing();
 
+    // Bit Sync External Clock Transmission functions
+    void AdvanceClockToActiveEdge();
+    BitState BitSyncExtClkReadBit();
+    HdlcByte BitSyncExtClkReadByte();
+    void BitSyncExtClkProcessFlags();
+    bool ExtClkFlagComing();
+    bool ExtClkAbortComing();
+
     // Byte Async Transmission functions
     HdlcByte ByteAsyncProcessFlags();
     void GenerateFlagsFrames( vector<HdlcByte> readBytes );
@@ -73,6 +81,7 @@ class HdlcAnalyzer : public Analyzer2
     std::auto_ptr<HdlcAnalyzerSettings> mSettings;
     std::auto_ptr<HdlcAnalyzerResults> mResults;
     AnalyzerChannelData* mHdlc;
+    AnalyzerChannelData* mClock;
 
     U32 mSampleRateHz;
     U64 mSamplesInHalfPeriod;

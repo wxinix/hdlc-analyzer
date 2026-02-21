@@ -3,7 +3,9 @@
 
 HdlcAnalyzerSettings::HdlcAnalyzerSettings()
     : mInputChannel( UNDEFINED_CHANNEL ),
+      mClockChannel( UNDEFINED_CHANNEL ),
       mBitRate( 2000000 ),
+      mClockEdge( 0 ),
       mTransmissionMode( HDLC_TRANSMISSION_BIT_SYNC ),
       mHdlcAddr( HDLC_BASIC_ADDRESS_FIELD ),
       mHdlcControl( HDLC_BASIC_CONTROL_FIELD ),
@@ -13,6 +15,11 @@ HdlcAnalyzerSettings::HdlcAnalyzerSettings()
     mInputChannelInterface->SetTitleAndTooltip( "HDLC", "Standard HDLC" );
     mInputChannelInterface->SetChannel( mInputChannel );
 
+    mClockChannelInterface.reset( new AnalyzerSettingInterfaceChannel() );
+    mClockChannelInterface->SetTitleAndTooltip( "Clock", "External clock signal for Bit Synchronous (External Clock) mode" );
+    mClockChannelInterface->SetChannel( mClockChannel );
+    mClockChannelInterface->SetSelectionOfNoneIsAllowed( true );
+
     mBitRateInterface.reset( new AnalyzerSettingInterfaceInteger() );
     mBitRateInterface->SetTitleAndTooltip( "Baud Rate", "Specify the baud rate in symbols per second." );
     mBitRateInterface->SetMax( 6000000 );
@@ -21,10 +28,17 @@ HdlcAnalyzerSettings::HdlcAnalyzerSettings()
 
     mHdlcTransmissionInterface.reset( new AnalyzerSettingInterfaceNumberList() );
     mHdlcTransmissionInterface->SetTitleAndTooltip( "Transmission Mode", "Specify the transmission mode of the HDLC frames" );
-    mHdlcTransmissionInterface->AddNumber( HDLC_TRANSMISSION_BIT_SYNC, "Bit Synchronous", "Bit-oriented transmission using bit stuffing" );
+    mHdlcTransmissionInterface->AddNumber( HDLC_TRANSMISSION_BIT_SYNC, "Bit Synchronous", "Bit-oriented transmission using bit stuffing (internal clock)" );
+    mHdlcTransmissionInterface->AddNumber( HDLC_TRANSMISSION_BIT_SYNC_EXT_CLK, "Bit Synchronous (External Clock)", "Bit-oriented transmission using external clock signal" );
     mHdlcTransmissionInterface->AddNumber( HDLC_TRANSMISSION_BYTE_ASYNC, "Byte Asynchronous",
                                            "Byte asynchronous transmission using byte stuffing (Also known as start/stop mode)" );
     mHdlcTransmissionInterface->SetNumber( mTransmissionMode );
+
+    mClockEdgeInterface.reset( new AnalyzerSettingInterfaceNumberList() );
+    mClockEdgeInterface->SetTitleAndTooltip( "Clock Edge", "Which clock edge to sample data on" );
+    mClockEdgeInterface->AddNumber( 0, "Rising Edge", "Sample data on rising edge of clock" );
+    mClockEdgeInterface->AddNumber( 1, "Falling Edge", "Sample data on falling edge of clock" );
+    mClockEdgeInterface->SetNumber( mClockEdge );
 
     mHdlcAddrInterface.reset( new AnalyzerSettingInterfaceNumberList() );
     mHdlcAddrInterface->SetTitleAndTooltip( "Address Field Type", "Specify the address field type of an HDLC frame." );
@@ -49,8 +63,10 @@ HdlcAnalyzerSettings::HdlcAnalyzerSettings()
     mHdlcFcsInterface->SetNumber( mHdlcFcs );
 
     AddInterface( mInputChannelInterface.get() );
+    AddInterface( mClockChannelInterface.get() );
     AddInterface( mBitRateInterface.get() );
     AddInterface( mHdlcTransmissionInterface.get() );
+    AddInterface( mClockEdgeInterface.get() );
     AddInterface( mHdlcAddrInterface.get() );
     AddInterface( mHdlcControlInterface.get() );
     AddInterface( mHdlcFcsInterface.get() );
@@ -61,6 +77,7 @@ HdlcAnalyzerSettings::HdlcAnalyzerSettings()
 
     ClearChannels();
     AddChannel( mInputChannel, "HDLC", false );
+    AddChannel( mClockChannel, "Clock", false );
 }
 
 HdlcAnalyzerSettings::~HdlcAnalyzerSettings()
@@ -75,14 +92,23 @@ U8 HdlcAnalyzerSettings::Bit5Inv( U8 value )
 bool HdlcAnalyzerSettings::SetSettingsFromInterfaces()
 {
     mInputChannel = mInputChannelInterface->GetChannel();
+    mClockChannel = mClockChannelInterface->GetChannel();
     mBitRate = mBitRateInterface->GetInteger();
+    mClockEdge = U32( mClockEdgeInterface->GetNumber() );
     mTransmissionMode = HdlcTransmissionModeType( U32( mHdlcTransmissionInterface->GetNumber() ) );
     mHdlcAddr = HdlcAddressType( U32( mHdlcAddrInterface->GetNumber() ) );
     mHdlcControl = HdlcControlType( U32( mHdlcControlInterface->GetNumber() ) );
     mHdlcFcs = HdlcFcsType( U32( mHdlcFcsInterface->GetNumber() ) );
 
+    if( mTransmissionMode == HDLC_TRANSMISSION_BIT_SYNC_EXT_CLK && mClockChannel == UNDEFINED_CHANNEL )
+    {
+        SetErrorText( "External Clock mode requires a clock channel to be selected." );
+        return false;
+    }
+
     ClearChannels();
     AddChannel( mInputChannel, "HDLC", true );
+    AddChannel( mClockChannel, "Clock", mClockChannel != UNDEFINED_CHANNEL );
 
     return true;
 }
@@ -90,7 +116,9 @@ bool HdlcAnalyzerSettings::SetSettingsFromInterfaces()
 void HdlcAnalyzerSettings::UpdateInterfacesFromSettings()
 {
     mInputChannelInterface->SetChannel( mInputChannel );
+    mClockChannelInterface->SetChannel( mClockChannel );
     mBitRateInterface->SetInteger( mBitRate );
+    mClockEdgeInterface->SetNumber( mClockEdge );
     mHdlcTransmissionInterface->SetNumber( mTransmissionMode );
     mHdlcAddrInterface->SetNumber( mHdlcAddr );
     mHdlcControlInterface->SetNumber( mHdlcControl );
@@ -108,9 +136,12 @@ void HdlcAnalyzerSettings::LoadSettings( const char* settings )
     text_archive >> *( U32* )&mHdlcAddr;
     text_archive >> *( U32* )&mHdlcControl;
     text_archive >> *( U32* )&mHdlcFcs;
+    text_archive >> mClockChannel;
+    text_archive >> mClockEdge;
 
     ClearChannels();
     AddChannel( mInputChannel, "HDLC", true );
+    AddChannel( mClockChannel, "Clock", mClockChannel != UNDEFINED_CHANNEL );
 
     UpdateInterfacesFromSettings();
 }
@@ -125,6 +156,8 @@ const char* HdlcAnalyzerSettings::SaveSettings()
     text_archive << U32( mHdlcAddr );
     text_archive << U32( mHdlcControl );
     text_archive << U32( mHdlcFcs );
+    text_archive << mClockChannel;
+    text_archive << mClockEdge;
 
     return SetReturnString( text_archive.GetString() );
 }
